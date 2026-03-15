@@ -19,6 +19,9 @@ ios/build/
 .env.local
 *.env
 
+# API keys / secrets
+src/config.js
+
 # Misc
 .DS_Store
 *.log
