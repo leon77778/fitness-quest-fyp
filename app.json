@@ -1,7 +1,8 @@
 {
   "expo": {
-    "name": "Fitness Quest",
+    "name": "RPGFit",
     "slug": "fitness-quest",
+    "scheme": "rpgfit",
     "version": "1.0.0",
     "orientation": "portrait",
     "updates": {
@@ -14,8 +15,22 @@
       "supportsTablet": true
     },
     "android": {
-      "package": "com.anonymous.fitnessquest"
+      "package": "com.anonymous.fitnessquest",
+      "config": {
+        "googleMaps": {
+          "apiKey": "YOUR_GOOGLE_MAPS_API_KEY"
+        }
+      }
     },
-    "web": {}
+    "web": {},
+    "plugins": [
+      "expo-secure-store",
+      "expo-dev-client"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "c8ee3ed5-0585-4354-a4e7-c2119fe4f21b"
+      }
+    }
   }
 }
