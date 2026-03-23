@@ -1296,6 +1296,8 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
   const lastCoordRef = useRef(null);
   const distanceRef = useRef(0);
   const elapsedRef = useRef(0);
+  const destinationRef = useRef(null);
+  const achievedRef = useRef(false);
 
   // Get current location as soon as the map opens
   useEffect(() => {
@@ -1325,6 +1327,8 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
     setDistanceM(0);
     setElapsedS(0);
     setAchieved(false);
+    achievedRef.current = false;
+    destinationRef.current = null;
     setTracking(true);
 
     // Place destination marker and auto-open Google Maps with walking route
@@ -1332,6 +1336,7 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
       const bearing = Math.random() * 360;
       const dest = destinationPoint(startCoord, walkObjective.value, bearing);
       setDestination(dest);
+      destinationRef.current = dest;
       const url = `https://www.google.com/maps/dir/?api=1&origin=${startCoord.latitude},${startCoord.longitude}&destination=${dest.latitude},${dest.longitude}&travelmode=walking`;
       Linking.openURL(url);
     }
@@ -1348,10 +1353,11 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
             setCoords((prev) => [...prev, newCoord]);
             setDistanceM(distanceRef.current);
           }
-          // Check if user reached the destination (within 30m)
-          if (destination) {
-            const distToDest = haversineDistance(newCoord, destination);
-            if (distToDest <= 30 && !achieved) {
+          // Check if user reached the destination (within 30m) using refs
+          if (destinationRef.current && !achievedRef.current) {
+            const distToDest = haversineDistance(newCoord, destinationRef.current);
+            if (distToDest <= 30) {
+              achievedRef.current = true;
               setAchieved(true);
             }
           }
