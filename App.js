@@ -1276,6 +1276,7 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
   const [walkResult, setWalkResult] = useState(null);
   const [permError, setPermError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [currentLocation, setCurrentLocation] = useState(null);
 
   const locationSub = useRef(null);
   const timerRef = useRef(null);
@@ -1283,7 +1284,14 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
   const distanceRef = useRef(0);
   const elapsedRef = useRef(0);
 
+  // Get current location as soon as the map opens
   useEffect(() => {
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      setCurrentLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+    })();
     return () => {
       locationSub.current?.remove();
       clearInterval(timerRef.current);
@@ -1388,9 +1396,10 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
     );
   }
 
-  const initialRegion = coords[0]
-    ? { latitude: coords[0].latitude, longitude: coords[0].longitude, latitudeDelta: 0.005, longitudeDelta: 0.005 }
-    : { latitude: 51.505, longitude: -0.09, latitudeDelta: 0.01, longitudeDelta: 0.01 };
+  const mapCenter = coords[0] || currentLocation;
+  const initialRegion = mapCenter
+    ? { latitude: mapCenter.latitude, longitude: mapCenter.longitude, latitudeDelta: 0.005, longitudeDelta: 0.005 }
+    : null;
 
   return (
     <View style={s.root}>
@@ -1408,11 +1417,18 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
 
       {/* Map */}
       {MapView ? (
+        !initialRegion ? (
+          <View style={[s.mapView, { backgroundColor: '#111111', justifyContent: 'center', alignItems: 'center' }]}>
+            <ActivityIndicator size="large" color="#FFD700" />
+            <Text style={{ color: '#FFD700', marginTop: 12, fontSize: 13 }}>Getting your location...</Text>
+          </View>
+        ) : (
         <MapView style={s.mapView} initialRegion={initialRegion} showsUserLocation followsUserLocation={tracking}>
           {coords.length > 1 && Polyline && (
             <Polyline coordinates={coords} strokeColor="#FFD700" strokeWidth={3} />
           )}
         </MapView>
+        )
       ) : (
         <View style={[s.mapView, { backgroundColor: '#111111', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 30 }]}>
           <Text style={{ fontSize: 40, marginBottom: 16 }}>🗺️</Text>
