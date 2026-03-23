@@ -1514,6 +1514,19 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
             : <Text style={s.walkBtnText}>{tracking ? 'STOP WALK' : 'START WALK'}</Text>
           }
         </TouchableOpacity>
+        {destination && tracking && (
+          <TouchableOpacity
+            style={[s.walkBtn, { backgroundColor: '#1a73e8', marginTop: 10 }]}
+            onPress={() => {
+              const origin = coords[0] || currentLocation;
+              const url = `https://www.google.com/maps/dir/?api=1&origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}&travelmode=walking`;
+              Linking.openURL(url);
+            }}
+            activeOpacity={0.85}
+          >
+            <Text style={s.walkBtnText}>🗺️ NAVIGATE IN GOOGLE MAPS</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
