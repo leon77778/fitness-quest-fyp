@@ -30,6 +30,7 @@ import {
   BackHandler,
   ActivityIndicator,
   Platform,
+  KeyboardAvoidingView,
 } from "react-native";
 
 // ── Groq API (Llama) ──
@@ -887,7 +888,10 @@ ${historyContext}`;
   };
 
   return (
-    <View style={s.oracleContainer}>
+    <KeyboardAvoidingView
+      style={s.oracleContainer}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
       {/* Header */}
       <View style={s.oracleHeader}>
         <Text style={s.oracleTitle}>The Oracle</Text>
@@ -948,7 +952,7 @@ ${historyContext}`;
           <Text style={s.oracleSendText}>↑</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
