@@ -193,7 +193,7 @@ User's session history:
 ${historyText}
 
 Respond ONLY with valid JSON — an array of exactly 5 exercises, no extra text:
-[{"name":"Exercise Name","type":"reps or timer","target":number,"instructions":"Clear instructions."},...]`;
+[{"name":"Exercise Name","type":"reps or timer","target":number},...]`;
 
   try {
     const res = await fetch(GROQ_URL, {
