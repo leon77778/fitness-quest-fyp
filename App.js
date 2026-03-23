@@ -43,6 +43,7 @@ const EXERCISES = [
     target: 15,
     instructions:
       "Place your hands shoulder-width apart on the floor. Keep your body in a straight line from head to heels. Lower your chest until it nearly touches the floor, then push back up. Keep your core tight and breathe steadily throughout.",
+    videoUrl: "https://soemtmcjtuemwomzmraj.supabase.co/storage/v1/object/public/exercise%20videos/pushups.mp4",
   },
   {
     id: 2,
@@ -51,7 +52,7 @@ const EXERCISES = [
     target: 60,
     instructions:
       "Start in a forearm plank position with elbows directly under your shoulders. Keep your body in a straight line — don't let your hips sag or pike up. Engage your core and glutes. Breathe normally and hold the position for the full duration.",
-    videoUrl: "https://soemtmcjtuemwomzmraj.supabase.co/storage/v1/object/public/exercise%20videos/20260319_1226_01km30rx32e8rrx6y0t5tp6dd3.mp4",
+    videoUrl: "https://soemtmcjtuemwomzmraj.supabase.co/storage/v1/object/public/exercise%20videos/plank.mp4",
   },
   {
     id: 3,
@@ -60,6 +61,7 @@ const EXERCISES = [
     target: 30,
     instructions:
       "Stand upright with your feet together and arms at your sides. Jump your feet out to shoulder-width while raising your arms above your head. Jump back to the starting position and repeat. Keep a steady rhythm and land softly on the balls of your feet.",
+    videoUrl: "https://soemtmcjtuemwomzmraj.supabase.co/storage/v1/object/public/exercise%20videos/jumping-jacks.mp4",
   },
   {
     id: 4,
@@ -68,6 +70,7 @@ const EXERCISES = [
     target: 45,
     instructions:
       "Stand tall and run in place, driving your knees up to hip height with each step. Pump your arms in sync with your legs. Keep your core tight and land softly on the balls of your feet. Maintain a fast, steady pace throughout.",
+    videoUrl: "https://soemtmcjtuemwomzmraj.supabase.co/storage/v1/object/public/exercise%20videos/high-knees.mp4",
   },
   {
     id: 5,
@@ -76,6 +79,7 @@ const EXERCISES = [
     target: 15,
     instructions:
       "Stand with feet shoulder-width apart. Lower into a squat position, then explode upward jumping as high as you can. Land softly back into the squat position with bent knees to absorb the impact. Keep your chest up and core engaged throughout.",
+    videoUrl: "https://soemtmcjtuemwomzmraj.supabase.co/storage/v1/object/public/exercise%20videos/squat-jumps.mp4",
   },
 ];
 
@@ -172,12 +176,12 @@ async function getAIExercise(sessionHistory, userProfile, difficultyModifiers = 
 
   const prompt = `You are a fitness coach AI for the RPGFit app. Based on the user's exercise history and profile, create a 5-exercise session for today.
 ${profileText}${diffText}
-Available exercises: Push-Ups (reps), Plank (timer/seconds), Squats (reps), Wall Sit (timer/seconds).
+Available exercises: Push-Ups (reps), Plank (timer/seconds), Jumping Jacks (reps), High Knees (timer/seconds), Squat Jumps (reps).
 
 Rules:
 - If the user is new or coming back from failures, go easy (lower reps/duration)
 - If the user has been completing sessions consistently, gradually increase difficulty
-- Push-Ups: range 5-50 reps. Plank: range 15-120 seconds. Squats: range 5-40 reps. Wall Sit: range 15-90 seconds.
+- Push-Ups: range 5-50 reps. Plank: range 15-120 seconds. Jumping Jacks: range 10-60 reps. High Knees: range 15-90 seconds. Squat Jumps: range 5-30 reps.
 - Vary the exercises across the 5 — include a good mix
 - Apply the difficulty modifiers above if provided
 - Consider the user's streak and recent performance
@@ -1102,9 +1106,10 @@ function ExerciseScreen({ exercises, onComplete, onFail }) {
             <Video
               source={{ uri: exercise.videoUrl }}
               style={{ width: '100%', height: 220 }}
-              useNativeControls
               resizeMode={ResizeMode.CONTAIN}
               isLooping
+              isMuted
+              shouldPlay
             />
           ) : (
             <View style={s.videoPlaceholder}>
