@@ -45,7 +45,7 @@ const EXERCISES = [
     type: "reps",
     target: 15,
     instructions:
-      "Place your hands shoulder-width apart on the floor. Keep your body in a straight line from head to heels. Lower your chest until it nearly touches the floor, then push back up. Keep your core tight and breathe steadily throughout.",
+      "Place your hands shoulder-width apart on the floor. Keep your body in a straight line from head to heels. Lower your chest until it nearly touches the floor, then push back up. Keep your core tight and breathe steadily throughout.\n\nCan't do a push-up yet? Try a wall push-up: Stand facing a wall, about arm's length away. Place your hands flat on the wall at shoulder height and shoulder-width apart. Bend your elbows and lean your chest toward the wall, then push yourself back to the start. Keep your body straight and core tight — same movement, easier on your muscles.",
     videoUrl: "https://soemtmcjtuemwomzmraj.supabase.co/storage/v1/object/public/exercise%20videos/pushups.mp4",
   },
   {
