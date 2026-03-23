@@ -298,13 +298,11 @@ async function getAIWalkObjective(userProfile) {
   const profileText = userProfile
     ? `User: ${userProfile.fitness_level}, weight ${userProfile.weight}kg`
     : "User fitness level unknown";
-  const prompt = `You are a fitness coach. Generate a short outdoor walk objective.
+  const prompt = `You are a fitness coach. Generate a short outdoor walk objective based on distance.
 ${profileText}
-Respond ONLY with valid JSON:
+Respond ONLY with valid JSON — always distance-based:
 {"text":"Walk 500 metres","type":"distance","value":500}
-OR
-{"text":"Walk for 10 minutes","type":"time","value":600}
-Distance range: 100-2000m. Time range: 300-1800s.`;
+Distance range: 100-2000m. Adjust based on fitness level.`;
   try {
     const res = await fetch(GROQ_URL, {
       method: "POST",
@@ -1329,11 +1327,13 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
     setAchieved(false);
     setTracking(true);
 
-    // Place destination marker for distance-based objectives
+    // Place destination marker and auto-open Google Maps with walking route
     if (walkObjective?.type === 'distance') {
       const bearing = Math.random() * 360;
       const dest = destinationPoint(startCoord, walkObjective.value, bearing);
       setDestination(dest);
+      const url = `https://www.google.com/maps/dir/?api=1&origin=${startCoord.latitude},${startCoord.longitude}&destination=${dest.latitude},${dest.longitude}&travelmode=walking`;
+      Linking.openURL(url);
     }
 
     const sub = await Location.watchPositionAsync(
@@ -1514,19 +1514,6 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
             : <Text style={s.walkBtnText}>{tracking ? 'STOP WALK' : 'START WALK'}</Text>
           }
         </TouchableOpacity>
-        {destination && tracking && (
-          <TouchableOpacity
-            style={[s.walkBtn, { backgroundColor: '#1a73e8', marginTop: 10 }]}
-            onPress={() => {
-              const origin = coords[0] || currentLocation;
-              const url = `https://www.google.com/maps/dir/?api=1&origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}&travelmode=walking`;
-              Linking.openURL(url);
-            }}
-            activeOpacity={0.85}
-          >
-            <Text style={s.walkBtnText}>🗺️ NAVIGATE IN GOOGLE MAPS</Text>
-          </TouchableOpacity>
-        )}
       </View>
     </View>
   );
