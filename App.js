@@ -216,8 +216,16 @@ Respond ONLY with valid JSON — an array of exactly 5 exercises, no extra text:
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
       if (Array.isArray(parsed) && parsed.length === 5 &&
-          parsed.every(e => e.name && e.type && e.target && e.instructions)) {
-        return parsed;
+          parsed.every(e => e.name && e.type && e.target)) {
+        // Merge with EXERCISES array to always use our full instructions + videoUrl
+        return parsed.map(e => {
+          const base = EXERCISES.find(x => x.name === e.name);
+          return {
+            ...e,
+            instructions: base?.instructions ?? e.instructions ?? '',
+            videoUrl: base?.videoUrl ?? null,
+          };
+        });
       }
     }
     return null;
