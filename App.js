@@ -8,10 +8,12 @@ import * as Location from "expo-location";
 // react-native-maps is not bundled in Expo Go (SDK 50+) — load safely
 let MapView = null;
 let Polyline = null;
+let Marker = null;
 try {
   const RNMaps = require("react-native-maps");
   MapView = RNMaps.default;
   Polyline = RNMaps.Polyline;
+  Marker = RNMaps.Marker;
 } catch (_) {}
 import {
   SafeAreaView,
@@ -270,6 +272,17 @@ function computeExerciseDifficulty(sessionHistory) {
 }
 
 // ── Haversine distance between two GPS coords (metres) ──
+// Calculate destination point given start, distance (metres), and bearing (degrees)
+function destinationPoint(start, distanceM, bearingDeg) {
+  const R = 6371000;
+  const bearing = bearingDeg * Math.PI / 180;
+  const lat1 = start.latitude * Math.PI / 180;
+  const lon1 = start.longitude * Math.PI / 180;
+  const lat2 = Math.asin(Math.sin(lat1) * Math.cos(distanceM / R) + Math.cos(lat1) * Math.sin(distanceM / R) * Math.cos(bearing));
+  const lon2 = lon1 + Math.atan2(Math.sin(bearing) * Math.sin(distanceM / R) * Math.cos(lat1), Math.cos(distanceM / R) - Math.sin(lat1) * Math.sin(lat2));
+  return { latitude: lat2 * 180 / Math.PI, longitude: lon2 * 180 / Math.PI };
+}
+
 function haversineDistance(a, b) {
   const R = 6371000;
   const dLat = (b.latitude - a.latitude) * Math.PI / 180;
@@ -1277,6 +1290,8 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
   const [permError, setPermError] = useState('');
   const [saving, setSaving] = useState(false);
   const [currentLocation, setCurrentLocation] = useState(null);
+  const [destination, setDestination] = useState(null);
+  const [achieved, setAchieved] = useState(false);
 
   const locationSub = useRef(null);
   const timerRef = useRef(null);
@@ -1311,7 +1326,15 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
     elapsedRef.current = 0;
     setDistanceM(0);
     setElapsedS(0);
+    setAchieved(false);
     setTracking(true);
+
+    // Place destination marker for distance-based objectives
+    if (walkObjective?.type === 'distance') {
+      const bearing = Math.random() * 360;
+      const dest = destinationPoint(startCoord, walkObjective.value, bearing);
+      setDestination(dest);
+    }
 
     const sub = await Location.watchPositionAsync(
       { accuracy: Location.Accuracy.High, distanceInterval: 5, timeInterval: 3000 },
@@ -1324,6 +1347,13 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
             distanceRef.current += delta;
             setCoords((prev) => [...prev, newCoord]);
             setDistanceM(distanceRef.current);
+          }
+          // Check if user reached the destination (within 30m)
+          if (destination) {
+            const distToDest = haversineDistance(newCoord, destination);
+            if (distToDest <= 30 && !achieved) {
+              setAchieved(true);
+            }
           }
         }
       }
@@ -1427,6 +1457,13 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
           {coords.length > 1 && Polyline && (
             <Polyline coordinates={coords} strokeColor="#FFD700" strokeWidth={3} />
           )}
+          {destination && Marker && (
+            <Marker coordinate={destination} title="Destination" description={walkObjective?.text}>
+              <View style={{ alignItems: 'center' }}>
+                <Text style={{ fontSize: 30 }}>🏆</Text>
+              </View>
+            </Marker>
+          )}
         </MapView>
         )
       ) : (
@@ -1441,6 +1478,15 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
           <Text style={{ color: '#555555', fontSize: 12, marginTop: 16, textAlign: 'center' }}>
             GPS tracking & XP still work without the map.
           </Text>
+        </View>
+      )}
+
+      {/* Achievement banner */}
+      {achieved && (
+        <View style={{ position: 'absolute', top: 80, left: 20, right: 20, backgroundColor: '#FFD700', padding: 16, alignItems: 'center', zIndex: 999 }}>
+          <Text style={{ fontSize: 24 }}>🏆</Text>
+          <Text style={{ color: '#0A0A0A', fontWeight: '800', fontSize: 15, letterSpacing: 1, marginTop: 4 }}>DESTINATION REACHED!</Text>
+          <Text style={{ color: '#0A0A0A', fontSize: 12, marginTop: 2 }}>Objective complete — stop the walk to claim XP</Text>
         </View>
       )}
 
