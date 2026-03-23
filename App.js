@@ -86,16 +86,17 @@ const EXERCISES = [
   },
 ];
 
-// ── Cosmetics unlock system ──
-const COSMETICS = [
-  { id: 'helmet_iron',   name: 'Iron Helmet',   slot: 'head',  unlockLevel: 2,  emoji: '⛑️' },
-  { id: 'helmet_gold',   name: 'Gold Crown',    slot: 'head',  unlockLevel: 10, emoji: '👑' },
-  { id: 'outfit_armor',  name: 'Chain Armor',   slot: 'body',  unlockLevel: 3,  emoji: '🛡️' },
-  { id: 'outfit_robe',   name: 'Mage Robe',     slot: 'body',  unlockLevel: 7,  emoji: '🧥' },
-  { id: 'weapon_sword',  name: 'Iron Sword',    slot: 'hands', unlockLevel: 4,  emoji: '⚔️' },
-  { id: 'weapon_staff',  name: 'Wizard Staff',  slot: 'hands', unlockLevel: 8,  emoji: '🪄' },
-  { id: 'boots_leather', name: 'Leather Boots', slot: 'feet',  unlockLevel: 5,  emoji: '👢' },
-  { id: 'boots_winged',  name: 'Winged Boots',  slot: 'feet',  unlockLevel: 12, emoji: '🥾' },
+// ── Weapon badge system ──
+const WEAPONS = [
+  { id: 'stick',     name: 'Wooden Stick',    unlockLevel: 1,  emoji: '🪵', rarity: 'COMMON',    rarityColor: '#888888', pixel: '  ╱  \n ╱   \n╱    ' },
+  { id: 'dagger',    name: 'Iron Dagger',     unlockLevel: 3,  emoji: '🗡️',  rarity: 'COMMON',    rarityColor: '#AAAAAA', pixel: '  ▲  \n  █  \n ═█═ \n  █  ' },
+  { id: 'sword',     name: 'Iron Sword',      unlockLevel: 6,  emoji: '⚔️', rarity: 'UNCOMMON',  rarityColor: '#55AA55', pixel: '  ▲  \n ███ \n  █  \n ═█═ \n  █  ' },
+  { id: 'axe',       name: 'Battle Axe',      unlockLevel: 10, emoji: '🪓', rarity: 'UNCOMMON',  rarityColor: '#55AA55', pixel: ' ██  \n███  \n ██  \n  █  \n  █  ' },
+  { id: 'staff',     name: 'Wizard Staff',    unlockLevel: 15, emoji: '🪄', rarity: 'RARE',      rarityColor: '#5588FF', pixel: ' ◆   \n  █  \n  █  \n  █  \n  █  ' },
+  { id: 'goldsword', name: 'Golden Sword',    unlockLevel: 20, emoji: '⚔️', rarity: 'RARE',      rarityColor: '#FFD700', pixel: '  ▲  \n ███ \n ███ \n ═█═ \n  █  ' },
+  { id: 'trident',   name: 'Sea Trident',     unlockLevel: 25, emoji: '🔱', rarity: 'EPIC',      rarityColor: '#AA55FF', pixel: '▲ ▲ ▲\n █████\n  █  \n  █  \n  █  ' },
+  { id: 'crystal',   name: 'Crystal Blade',   unlockLevel: 35, emoji: '💎', rarity: 'EPIC',      rarityColor: '#00FFFF', pixel: '  ◆  \n ◆◆◆ \n◆███◆\n ═█═ \n  █  ' },
+  { id: 'legend',    name: 'Legendary Blade', unlockLevel: 50, emoji: '🌟', rarity: 'LEGENDARY', rarityColor: '#FF8C00', pixel: '  ★  \n ███ \n█████\n ███ \n ═█═ \n  █  ' },
 ];
 
 // ── Calorie estimation from session data ──
@@ -1538,69 +1539,54 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
 }
 
 // ══════════════════════════════════════════
-//  CHARACTER DISPLAY
+//  WEAPON BADGE (current weapon display)
 // ══════════════════════════════════════════
-function CharacterDisplay({ equippedCosmetics = {} }) {
-  const slots = [
-    { key: 'head',  label: 'Head'  },
-    { key: 'body',  label: 'Body'  },
-    { key: 'hands', label: 'Hands' },
-    { key: 'feet',  label: 'Feet'  },
-  ];
+function WeaponBadge({ level = 1, onPress }) {
+  const current = [...WEAPONS].reverse().find(w => level >= w.unlockLevel) || WEAPONS[0];
+  const next = WEAPONS.find(w => w.unlockLevel > level);
   return (
-    <View style={s.charDisplayRow}>
-      {slots.map(slot => {
-        const cosmeticId = equippedCosmetics[slot.key];
-        const cosmetic = cosmeticId ? COSMETICS.find(c => c.id === cosmeticId) : null;
-        return (
-          <View key={slot.key} style={[s.charSlot, cosmetic && s.charSlotActive]}>
-            <Text style={s.charSlotEmoji}>{cosmetic ? cosmetic.emoji : '·'}</Text>
-            <Text style={s.charSlotLabel}>{cosmetic ? cosmetic.name : slot.label}</Text>
-          </View>
-        );
-      })}
-    </View>
+    <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={[s.weaponBadgeBox, { borderColor: current.rarityColor }]}>
+      <Text style={[s.weaponBadgeRarity, { color: current.rarityColor }]}>{current.rarity}</Text>
+      <Text style={[s.weaponPixel, { color: current.rarityColor }]}>{current.pixel}</Text>
+      <Text style={s.weaponBadgeName}>{current.name}</Text>
+      {next && (
+        <Text style={s.weaponBadgeNext}>Next: {next.name} at Lv {next.unlockLevel}</Text>
+      )}
+    </TouchableOpacity>
   );
 }
 
 // ══════════════════════════════════════════
-//  COSMETICS MODAL
+//  WEAPON BADGES MODAL (gallery)
 // ══════════════════════════════════════════
-function CosmeticsModal({ visible, onClose, userProfile, onEquip }) {
+function WeaponBadgesModal({ visible, onClose, userProfile }) {
   const level = userProfile ? Math.floor(userProfile.xp / 200) + 1 : 1;
-  const equipped = userProfile?.equipped_cosmetics || {};
-  const unlocked = userProfile?.unlocked_cosmetics || [];
-  const slots = ['head', 'body', 'hands', 'feet'];
+  const current = [...WEAPONS].reverse().find(w => level >= w.unlockLevel) || WEAPONS[0];
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={s.modalOverlay}>
         <View style={[s.modalCard, { maxHeight: '85%' }]}>
-          <Text style={s.modalTitle}>CUSTOMIZE CHARACTER</Text>
+          <Text style={s.modalTitle}>WEAPON BADGES</Text>
+          <Text style={{ color: '#888', fontSize: 12, textAlign: 'center', marginBottom: 16 }}>Level up to unlock more powerful weapons</Text>
           <ScrollView showsVerticalScrollIndicator={false}>
-            {slots.map(slot => (
-              <View key={slot} style={{ marginBottom: 16 }}>
-                <Text style={s.cosmeticSlotHeader}>{slot.toUpperCase()}</Text>
-                {COSMETICS.filter(c => c.slot === slot).map(c => {
-                  const isUnlocked = unlocked.includes(c.id) || level >= c.unlockLevel;
-                  const isEquipped = equipped[slot] === c.id;
-                  return (
-                    <TouchableOpacity
-                      key={c.id}
-                      style={[s.cosmeticItem, isEquipped && s.cosmeticItemEquipped, !isUnlocked && s.cosmeticItemLocked]}
-                      onPress={() => isUnlocked && onEquip(slot, isEquipped ? null : c.id)}
-                      activeOpacity={isUnlocked ? 0.7 : 1}
-                    >
-                      <Text style={s.cosmeticItemEmoji}>{c.emoji}</Text>
-                      <View style={{ flex: 1 }}>
-                        <Text style={[s.cosmeticItemName, !isUnlocked && { color: '#555' }]}>{c.name}</Text>
-                        {!isUnlocked && <Text style={s.cosmeticLockText}>Unlocks at Level {c.unlockLevel}</Text>}
-                        {isEquipped && <Text style={{ color: '#FFD700', fontSize: 11 }}>EQUIPPED</Text>}
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            ))}
+            {WEAPONS.map(w => {
+              const unlocked = level >= w.unlockLevel;
+              const isCurrent = w.id === current.id;
+              return (
+                <View key={w.id} style={[s.weaponRow, isCurrent && { borderColor: w.rarityColor, borderWidth: 1 }, !unlocked && { opacity: 0.35 }]}>
+                  <View style={[s.weaponPixelBox, { borderColor: unlocked ? w.rarityColor : '#333' }]}>
+                    <Text style={[s.weaponPixelSmall, { color: unlocked ? w.rarityColor : '#444' }]}>{w.pixel}</Text>
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={[s.weaponRowName, { color: unlocked ? '#FFF' : '#555' }]}>{w.name}</Text>
+                    <Text style={[s.weaponRowRarity, { color: unlocked ? w.rarityColor : '#444' }]}>{w.rarity}</Text>
+                    {!unlocked && <Text style={s.cosmeticLockText}>Unlocks at Level {w.unlockLevel}</Text>}
+                    {isCurrent && <Text style={{ color: '#FFD700', fontSize: 11, marginTop: 2 }}>EQUIPPED</Text>}
+                  </View>
+                  <Text style={{ fontSize: 28 }}>{unlocked ? w.emoji : '🔒'}</Text>
+                </View>
+              );
+            })}
           </ScrollView>
           <TouchableOpacity style={s.modalCloseBtn} onPress={onClose} activeOpacity={0.8}>
             <Text style={s.modalCloseBtnText}>CLOSE</Text>
@@ -1624,11 +1610,14 @@ function LevelUpModal({ visible, newLevel, unlocks, onClaim }) {
           <Text style={[s.modalTitle, { fontSize: 30, color: '#FFD700', marginBottom: 16 }]}>Level {newLevel}</Text>
           {unlocks.length > 0 && (
             <>
-              <Text style={{ color: '#AAA', fontSize: 13, textAlign: 'center', marginBottom: 12 }}>New cosmetics unlocked:</Text>
-              {unlocks.map(c => (
-                <View key={c.id} style={s.cosmeticItem}>
-                  <Text style={s.cosmeticItemEmoji}>{c.emoji}</Text>
-                  <Text style={s.cosmeticItemName}>{c.name}</Text>
+              <Text style={{ color: '#AAA', fontSize: 13, textAlign: 'center', marginBottom: 12 }}>New weapon unlocked:</Text>
+              {unlocks.map(w => (
+                <View key={w.id} style={[s.cosmeticItem, { borderColor: w.rarityColor }]}>
+                  <Text style={s.cosmeticItemEmoji}>{w.emoji}</Text>
+                  <View>
+                    <Text style={[s.cosmeticItemName, { color: w.rarityColor }]}>{w.name}</Text>
+                    <Text style={{ color: '#888', fontSize: 11 }}>{w.rarity}</Text>
+                  </View>
                 </View>
               ))}
             </>
@@ -1689,12 +1678,12 @@ function ProfileScreen({ userProfile, sessionHistory, onSignOut, onUpdateProfile
     <ScrollView style={s.scrollRoot} contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
       <Text style={s.screenTitle}>PROFILE</Text>
 
-      {/* Character display */}
+      {/* Weapon badge */}
       <View style={s.profileCharBox}>
-        <Text style={s.profileCharTitle}>CHARACTER</Text>
-        <CharacterDisplay equippedCosmetics={userProfile.equipped_cosmetics || {}} />
+        <Text style={s.profileCharTitle}>CURRENT WEAPON</Text>
+        <WeaponBadge level={Math.floor(userProfile.xp / 200) + 1} onPress={onOpenCosmetics} />
         <TouchableOpacity style={s.customiseBtn} onPress={onOpenCosmetics} activeOpacity={0.8}>
-          <Text style={s.customiseBtnText}>CUSTOMIZE CHARACTER</Text>
+          <Text style={s.customiseBtnText}>VIEW ALL WEAPONS</Text>
         </TouchableOpacity>
       </View>
 
@@ -1843,7 +1832,7 @@ export default function App() {
   const [screen, setScreen] = useState('home');
   const [exercises, setExercises] = useState(null);
   const activeTab = screen === 'activity' ? 'activity' : screen === 'oracle' ? 'oracle' : screen === 'map' ? 'map' : screen === 'profile' ? 'profile' : 'home';
-  const [showCosmeticsModal, setShowCosmeticsModal] = useState(false);
+  const [showWeaponsModal, setShowWeaponsModal] = useState(false);
   const [levelUpUnlocks, setLevelUpUnlocks] = useState([]);
   const [showLevelUpModal, setShowLevelUpModal] = useState(false);
 
@@ -2023,19 +2012,11 @@ export default function App() {
         const oldLevel = Math.floor(userProfile.xp / 200) + 1;
         const updates = computeUpdatedProfile(userProfile, totalXP, todayStr);
         const newLevel = Math.floor(updates.xp / 200) + 1;
-        // Check for new cosmetic unlocks
+        // Check for new weapon unlocks
         if (newLevel > oldLevel) {
-          const newUnlocks = COSMETICS.filter(c => c.unlockLevel > oldLevel && c.unlockLevel <= newLevel);
-          if (newUnlocks.length > 0) {
-            const currentUnlocked = userProfile.unlocked_cosmetics || [];
-            const updatedUnlocked = [...new Set([...currentUnlocked, ...newUnlocks.map(c => c.id)])];
-            updates.unlocked_cosmetics = updatedUnlocked;
-            setLevelUpUnlocks(newUnlocks);
-            setShowLevelUpModal(true);
-          } else {
-            setLevelUpUnlocks([]);
-            setShowLevelUpModal(true);
-          }
+          const newUnlocks = WEAPONS.filter(w => w.unlockLevel > oldLevel && w.unlockLevel <= newLevel);
+          setLevelUpUnlocks(newUnlocks);
+          setShowLevelUpModal(true);
         }
         await supabase.from('profiles').update(updates).eq('id', user.id);
         setUserProfile((prev) => ({ ...prev, ...updates }));
@@ -2063,12 +2044,6 @@ export default function App() {
     if (data) setUserProfile(data);
   };
 
-  const handleEquipCosmetic = async (slot, cosmeticId) => {
-    const current = userProfile?.equipped_cosmetics || {};
-    const updated = cosmeticId ? { ...current, [slot]: cosmeticId } : { ...current, [slot]: null };
-    await supabase.from('profiles').update({ equipped_cosmetics: updated }).eq('id', user.id);
-    setUserProfile(prev => ({ ...prev, equipped_cosmetics: updated }));
-  };
 
   const returnHome = () => setScreen('home');
 
@@ -2217,7 +2192,7 @@ export default function App() {
           sessionHistory={sessionHistory}
           onSignOut={handleLogout}
           onUpdateProfile={handleUpdateProfile}
-          onOpenCosmetics={() => setShowCosmeticsModal(true)}
+          onOpenCosmetics={() => setShowWeaponsModal(true)}
         />
       )}
 
@@ -2244,11 +2219,10 @@ export default function App() {
         </TouchableOpacity>
       </View>
 
-      <CosmeticsModal
-        visible={showCosmeticsModal}
-        onClose={() => setShowCosmeticsModal(false)}
+      <WeaponBadgesModal
+        visible={showWeaponsModal}
+        onClose={() => setShowWeaponsModal(false)}
         userProfile={userProfile}
-        onEquip={(slot, id) => { handleEquipCosmetic(slot, id); }}
       />
       <LevelUpModal
         visible={showLevelUpModal}
@@ -3707,46 +3681,75 @@ const s = StyleSheet.create({
     letterSpacing: 2,
   },
 
-  /* ── Character display slots ── */
-  charDisplayRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    justifyContent: "center",
+  /* ── Weapon badge ── */
+  weaponBadgeBox: {
+    borderWidth: 2,
+    alignItems: "center",
+    padding: 16,
     marginBottom: 16,
+    backgroundColor: "#111111",
   },
-  charSlot: {
-    width: 70,
-    height: 70,
+  weaponBadgeRarity: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 3,
+    marginBottom: 8,
+  },
+  weaponPixel: {
+    fontFamily: "monospace",
+    fontSize: 13,
+    lineHeight: 16,
+    textAlign: "center",
+    marginBottom: 10,
+  },
+  weaponBadgeName: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "800",
+    letterSpacing: 1,
+  },
+  weaponBadgeNext: {
+    color: "#555555",
+    fontSize: 11,
+    marginTop: 6,
+  },
+
+  /* ── Weapon badges modal ── */
+  weaponRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 12,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: "#2A2A2A",
+    backgroundColor: "#111111",
+  },
+  weaponPixelBox: {
+    width: 52,
+    height: 52,
+    borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#0A0A0A",
   },
-  charSlotActive: {
-    borderColor: "#FFD700",
-    borderWidth: 2,
+  weaponPixelSmall: {
+    fontFamily: "monospace",
+    fontSize: 7,
+    lineHeight: 9,
+    textAlign: "center",
   },
-  charSlotEmoji: {
-    fontSize: 24,
-  },
-  charSlotLabel: {
-    fontSize: 9,
-    color: "#555555",
+  weaponRowName: {
+    fontSize: 13,
     fontWeight: "700",
-    letterSpacing: 0.5,
+  },
+  weaponRowRarity: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 2,
     marginTop: 2,
   },
 
-  /* ── Cosmetics modal ── */
-  cosmeticSlotHeader: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: "#888888",
-    letterSpacing: 3,
-    marginBottom: 8,
-  },
+  /* ── Shared modal item (used in LevelUpModal) ── */
   cosmeticItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -3756,13 +3759,6 @@ const s = StyleSheet.create({
     borderColor: "#2A2A2A",
     backgroundColor: "#0A0A0A",
     gap: 12,
-  },
-  cosmeticItemEquipped: {
-    borderColor: "#FFD700",
-    backgroundColor: "#1A1500",
-  },
-  cosmeticItemLocked: {
-    opacity: 0.5,
   },
   cosmeticItemEmoji: {
     fontSize: 22,
