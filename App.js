@@ -31,6 +31,7 @@ import {
   ActivityIndicator,
   Platform,
   KeyboardAvoidingView,
+  Image,
 } from "react-native";
 
 // ── Groq API (Llama) ──
@@ -88,15 +89,15 @@ const EXERCISES = [
 
 // ── Weapon badge system ──
 const WEAPONS = [
-  { id: 'stick',     name: 'Wooden Stick',    unlockLevel: 1,  emoji: '🪵', rarity: 'COMMON',    rarityColor: '#888888', pixel: '  ╱  \n ╱   \n╱    ' },
-  { id: 'dagger',    name: 'Iron Dagger',     unlockLevel: 3,  emoji: '🗡️',  rarity: 'COMMON',    rarityColor: '#AAAAAA', pixel: '  ▲  \n  █  \n ═█═ \n  █  ' },
-  { id: 'sword',     name: 'Iron Sword',      unlockLevel: 6,  emoji: '⚔️', rarity: 'UNCOMMON',  rarityColor: '#55AA55', pixel: '  ▲  \n ███ \n  █  \n ═█═ \n  █  ' },
-  { id: 'axe',       name: 'Battle Axe',      unlockLevel: 10, emoji: '🪓', rarity: 'UNCOMMON',  rarityColor: '#55AA55', pixel: ' ██  \n███  \n ██  \n  █  \n  █  ' },
-  { id: 'staff',     name: 'Wizard Staff',    unlockLevel: 15, emoji: '🪄', rarity: 'RARE',      rarityColor: '#5588FF', pixel: ' ◆   \n  █  \n  █  \n  █  \n  █  ' },
-  { id: 'goldsword', name: 'Golden Sword',    unlockLevel: 20, emoji: '⚔️', rarity: 'RARE',      rarityColor: '#FFD700', pixel: '  ▲  \n ███ \n ███ \n ═█═ \n  █  ' },
-  { id: 'trident',   name: 'Sea Trident',     unlockLevel: 25, emoji: '🔱', rarity: 'EPIC',      rarityColor: '#AA55FF', pixel: '▲ ▲ ▲\n █████\n  █  \n  █  \n  █  ' },
-  { id: 'crystal',   name: 'Crystal Blade',   unlockLevel: 35, emoji: '💎', rarity: 'EPIC',      rarityColor: '#00FFFF', pixel: '  ◆  \n ◆◆◆ \n◆███◆\n ═█═ \n  █  ' },
-  { id: 'legend',    name: 'Legendary Blade', unlockLevel: 50, emoji: '🌟', rarity: 'LEGENDARY', rarityColor: '#FF8C00', pixel: '  ★  \n ███ \n█████\n ███ \n ═█═ \n  █  ' },
+  { id: 'stick',     name: 'Wooden Stick',    unlockLevel: 1,  rarity: 'COMMON',    rarityColor: '#888888', image: require('./assets/weapons/stick.png') },
+  { id: 'dagger',    name: 'Iron Dagger',     unlockLevel: 3,  rarity: 'COMMON',    rarityColor: '#AAAAAA', image: require('./assets/weapons/dagger.png') },
+  { id: 'sword',     name: 'Iron Sword',      unlockLevel: 6,  rarity: 'UNCOMMON',  rarityColor: '#55AA55', image: require('./assets/weapons/sword.png') },
+  { id: 'axe',       name: 'Battle Axe',      unlockLevel: 10, rarity: 'UNCOMMON',  rarityColor: '#55AA55', image: require('./assets/weapons/axe.png') },
+  { id: 'staff',     name: 'Wizard Staff',    unlockLevel: 15, rarity: 'RARE',      rarityColor: '#5588FF', image: require('./assets/weapons/staff.png') },
+  { id: 'goldsword', name: 'Golden Sword',    unlockLevel: 20, rarity: 'RARE',      rarityColor: '#FFD700', image: require('./assets/weapons/goldsword.png') },
+  { id: 'trident',   name: 'Sea Trident',     unlockLevel: 25, rarity: 'EPIC',      rarityColor: '#AA55FF', image: require('./assets/weapons/trident.png') },
+  { id: 'crystal',   name: 'Crystal Blade',   unlockLevel: 35, rarity: 'EPIC',      rarityColor: '#00FFFF', image: require('./assets/weapons/crystal.png') },
+  { id: 'legend',    name: 'Legendary Blade', unlockLevel: 50, rarity: 'LEGENDARY', rarityColor: '#FF8C00', image: require('./assets/weapons/legend.png') },
 ];
 
 // ── Calorie estimation from session data ──
@@ -240,6 +241,51 @@ Respond ONLY with valid JSON — an array of exactly 5 exercises, no extra text:
 function calculateXP(exercise) {
   if (exercise.type === "reps") return exercise.target * 2;
   return exercise.target * 1;
+}
+
+function groupWorkoutSessions(sessionHistory) {
+  const sorted = [...sessionHistory].sort((a, b) => {
+    const aTime = new Date(a.created_at || a.date).getTime();
+    const bTime = new Date(b.created_at || b.date).getTime();
+    return bTime - aTime;
+  });
+
+  const groups = [];
+  for (const entry of sorted) {
+    const entryTime = new Date(entry.created_at || entry.date).getTime();
+    const entryDay = entry.date;
+    const lastGroup = groups[groups.length - 1];
+
+    const shouldMerge =
+      lastGroup &&
+      lastGroup.date === entryDay &&
+      entry.created_at &&
+      lastGroup.hasPreciseTime &&
+      Math.abs(lastGroup.anchorTime - entryTime) <= 3 * 60 * 1000;
+
+    if (shouldMerge) {
+      lastGroup.items.push(entry);
+      lastGroup.completed = lastGroup.completed && entry.completed;
+      if (entry.completed) {
+        lastGroup.xp += calculateXP(entry);
+      }
+      continue;
+    }
+
+    groups.push({
+      date: entryDay,
+      anchorTime: entryTime,
+      hasPreciseTime: Boolean(entry.created_at),
+      items: [entry],
+      completed: entry.completed,
+      xp: entry.completed ? calculateXP(entry) : 0,
+    });
+  }
+
+  return groups.slice(0, 10).map((group) => ({
+    ...group,
+    summary: group.items.map((item) => item.exercise).join(" • "),
+  }));
 }
 
 function computeUpdatedProfile(profile, xpEarned, todayStr) {
@@ -713,7 +759,7 @@ function ProgressScreen({ sessionHistory, calorieData, userProfile, walkHistory 
   const completedSessions = sessionHistory.filter((s) => s.completed).length;
   const completionRate = totalSessions > 0 ? Math.round((completedSessions / totalSessions) * 100) : 0;
   const level = userProfile ? Math.floor(userProfile.xp / 200) + 1 : 1;
-  const recentSessions = [...sessionHistory].reverse().slice(0, 5);
+  const recentSessions = groupWorkoutSessions(sessionHistory);
 
   const statCards = [
     { label: 'Sessions', value: totalSessions },
@@ -796,16 +842,20 @@ function ProgressScreen({ sessionHistory, calorieData, userProfile, walkHistory 
           {recentSessions.map((s2, i) => (
             <View key={i} style={s.recentRow}>
               <View style={s.recentLeft}>
-                <Text style={s.recentExercise}>{s2.exercise}</Text>
+                <Text style={s.recentExercise}>
+                  Session {recentSessions.length - i}
+                </Text>
                 <Text style={s.recentDate}>{s2.date}</Text>
+                <Text style={s.recentDetails}>
+                  {s2.items.length} exercise{s2.items.length === 1 ? "" : "s"}
+                </Text>
+                <Text style={s.recentSummary}>{s2.summary}</Text>
               </View>
               <View style={s.recentRight}>
                 <Text style={s2.completed ? s.recentBadgeWin : s.recentBadgeFail}>
-                  {s2.completed ? '✓ Done' : '✗ Failed'}
+                  {s2.completed ? '✓ Passed' : '✗ Failed'}
                 </Text>
-                <Text style={s.recentXp}>
-                  {s2.completed ? `+${s2.type === 'reps' ? s2.target * 2 : s2.target} XP` : '0 XP'}
-                </Text>
+                <Text style={s.recentXp}>{s2.completed ? `+${s2.xp} XP` : '0 XP'}</Text>
               </View>
             </View>
           ))}
@@ -1541,14 +1591,15 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
 // ══════════════════════════════════════════
 //  WEAPON BADGE (current weapon display)
 // ══════════════════════════════════════════
-function WeaponBadge({ level = 1, onPress }) {
-  const current = [...WEAPONS].reverse().find(w => level >= w.unlockLevel) || WEAPONS[0];
+function WeaponBadge({ level = 1, equippedWeaponId, onPress }) {
+  const highestUnlocked = [...WEAPONS].reverse().find(w => level >= w.unlockLevel) || WEAPONS[0];
+  const equipped = WEAPONS.find(w => w.id === equippedWeaponId && level >= w.unlockLevel) || highestUnlocked;
   const next = WEAPONS.find(w => w.unlockLevel > level);
   return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={[s.weaponBadgeBox, { borderColor: current.rarityColor }]}>
-      <Text style={[s.weaponBadgeRarity, { color: current.rarityColor }]}>{current.rarity}</Text>
-      <Text style={[s.weaponPixel, { color: current.rarityColor }]}>{current.pixel}</Text>
-      <Text style={s.weaponBadgeName}>{current.name}</Text>
+    <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={[s.weaponBadgeBox, { borderColor: equipped.rarityColor }]}>
+      <Text style={[s.weaponBadgeRarity, { color: equipped.rarityColor }]}>{equipped.rarity}</Text>
+      <Image source={equipped.image} style={s.weaponBadgeImage} resizeMode="contain" />
+      <Text style={s.weaponBadgeName}>{equipped.name}</Text>
       {next && (
         <Text style={s.weaponBadgeNext}>Next: {next.name} at Lv {next.unlockLevel}</Text>
       )}
@@ -1559,34 +1610,57 @@ function WeaponBadge({ level = 1, onPress }) {
 // ══════════════════════════════════════════
 //  WEAPON BADGES MODAL (gallery)
 // ══════════════════════════════════════════
-function WeaponBadgesModal({ visible, onClose, userProfile }) {
+function WeaponBadgesModal({ visible, onClose, userProfile, onEquip }) {
   const level = userProfile ? Math.floor(userProfile.xp / 200) + 1 : 1;
-  const current = [...WEAPONS].reverse().find(w => level >= w.unlockLevel) || WEAPONS[0];
+  const equippedId = userProfile?.equipped_cosmetics?.weapon;
+  const highestUnlocked = [...WEAPONS].reverse().find(w => level >= w.unlockLevel) || WEAPONS[0];
+  const currentId = (WEAPONS.find(w => w.id === equippedId && level >= w.unlockLevel) || highestUnlocked).id;
+  const unlockedWeapons = WEAPONS.filter(w => level >= w.unlockLevel);
+  const lockedWeapons = WEAPONS.filter(w => level < w.unlockLevel);
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={s.modalOverlay}>
-        <View style={[s.modalCard, { maxHeight: '85%' }]}>
+        <View style={[s.modalCard, s.weaponModalCard, { maxHeight: '85%' }]}>
           <Text style={s.modalTitle}>WEAPON BADGES</Text>
-          <Text style={{ color: '#888', fontSize: 12, textAlign: 'center', marginBottom: 16 }}>Level up to unlock more powerful weapons</Text>
-          <ScrollView showsVerticalScrollIndicator={false}>
-            {WEAPONS.map(w => {
-              const unlocked = level >= w.unlockLevel;
-              const isCurrent = w.id === current.id;
-              return (
-                <View key={w.id} style={[s.weaponRow, isCurrent && { borderColor: w.rarityColor, borderWidth: 1 }, !unlocked && { opacity: 0.35 }]}>
-                  <View style={[s.weaponPixelBox, { borderColor: unlocked ? w.rarityColor : '#333' }]}>
-                    <Text style={[s.weaponPixelSmall, { color: unlocked ? w.rarityColor : '#444' }]}>{w.pixel}</Text>
-                  </View>
-                  <View style={{ flex: 1, marginLeft: 12 }}>
-                    <Text style={[s.weaponRowName, { color: unlocked ? '#FFF' : '#555' }]}>{w.name}</Text>
-                    <Text style={[s.weaponRowRarity, { color: unlocked ? w.rarityColor : '#444' }]}>{w.rarity}</Text>
-                    {!unlocked && <Text style={s.cosmeticLockText}>Unlocks at Level {w.unlockLevel}</Text>}
-                    {isCurrent && <Text style={{ color: '#FFD700', fontSize: 11, marginTop: 2 }}>EQUIPPED</Text>}
-                  </View>
-                  <Text style={{ fontSize: 28 }}>{unlocked ? w.emoji : '🔒'}</Text>
+          <Text style={{ color: '#888', fontSize: 12, textAlign: 'center', marginBottom: 16 }}>Tap an unlocked weapon to equip it</Text>
+          <ScrollView
+            style={s.weaponModalScroll}
+            contentContainerStyle={s.weaponModalScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <Text style={s.weaponSectionLabel}>Unlocked</Text>
+            <View style={s.weaponGrid}>
+              {unlockedWeapons.map(w => {
+                const isEquipped = w.id === currentId;
+                return (
+                  <TouchableOpacity
+                    key={w.id}
+                    onPress={() => onEquip(w.id)}
+                    activeOpacity={0.7}
+                    style={[s.weaponTile, isEquipped && { borderColor: w.rarityColor, borderWidth: 2 }]}
+                  >
+                    <Text style={[s.weaponTileRarity, { color: w.rarityColor }]}>{w.rarity}</Text>
+                    <Image source={w.image} style={s.weaponTileImage} resizeMode="contain" />
+                    <Text style={s.weaponTileName}>{w.name}</Text>
+                    <Text style={s.weaponTileLevel}>Lv {w.unlockLevel}</Text>
+                    {isEquipped && <Text style={s.weaponTileEquipped}>EQUIPPED</Text>}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <Text style={s.weaponSectionLabel}>Locked</Text>
+            <View style={s.weaponGrid}>
+              {lockedWeapons.map(w => (
+                <View key={w.id} style={[s.weaponTile, s.weaponTileLocked]}>
+                  <Text style={s.weaponTileRarityLocked}>{w.rarity}</Text>
+                  <Image source={w.image} style={s.weaponTileImage} resizeMode="contain" />
+                  <Text style={s.weaponTileNameLocked}>{w.name}</Text>
+                  <Text style={s.weaponTileLevel}>Unlock at Lv {w.unlockLevel}</Text>
+                  <Text style={s.weaponTileLock}>LOCKED</Text>
                 </View>
-              );
-            })}
+              ))}
+            </View>
           </ScrollView>
           <TouchableOpacity style={s.modalCloseBtn} onPress={onClose} activeOpacity={0.8}>
             <Text style={s.modalCloseBtnText}>CLOSE</Text>
@@ -1672,7 +1746,8 @@ function ProfileScreen({ userProfile, sessionHistory, onSignOut, onUpdateProfile
     setShowEditModal(false);
   };
 
-  const fitnessLevels = ['beginner', 'intermediate', 'advanced'];
+  const editLevel = userProfile ? Math.floor(userProfile.xp / 200) + 1 : 1;
+  const rankWeapon = [...WEAPONS].reverse().find(w => editLevel >= w.unlockLevel) || WEAPONS[0];
 
   return (
     <ScrollView style={s.scrollRoot} contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
@@ -1681,7 +1756,7 @@ function ProfileScreen({ userProfile, sessionHistory, onSignOut, onUpdateProfile
       {/* Weapon badge */}
       <View style={s.profileCharBox}>
         <Text style={s.profileCharTitle}>CURRENT WEAPON</Text>
-        <WeaponBadge level={Math.floor(userProfile.xp / 200) + 1} onPress={onOpenCosmetics} />
+        <WeaponBadge level={Math.floor(userProfile.xp / 200) + 1} equippedWeaponId={userProfile?.equipped_cosmetics?.weapon} onPress={onOpenCosmetics} />
         <TouchableOpacity style={s.customiseBtn} onPress={onOpenCosmetics} activeOpacity={0.8}>
           <Text style={s.customiseBtnText}>VIEW ALL WEAPONS</Text>
         </TouchableOpacity>
@@ -1799,18 +1874,11 @@ function ProfileScreen({ userProfile, sessionHistory, onSignOut, onUpdateProfile
                 />
               </View>
             ))}
-            <Text style={s.inputLabel}>FITNESS LEVEL</Text>
-            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 20 }}>
-              {fitnessLevels.map(fl => (
-                <TouchableOpacity
-                  key={fl}
-                  style={[s.fitnessBtnBase, editFitness === fl ? s.fitnessBtnActive : s.fitnessBtnInactive]}
-                  onPress={() => setEditFitness(fl)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[s.fitnessBtnText, editFitness === fl && s.fitnessBtnTextActive]}>{fl}</Text>
-                </TouchableOpacity>
-              ))}
+            <Text style={s.inputLabel}>RANK</Text>
+            <View style={s.rankDisplay}>
+              <Text style={[s.rankName, { color: rankWeapon.rarityColor }]}>{rankWeapon.name}</Text>
+              <Text style={[s.rankRarity, { color: rankWeapon.rarityColor }]}>{rankWeapon.rarity}</Text>
+              <Text style={s.rankHint}>Rank improves as you level up</Text>
             </View>
             <TouchableOpacity style={s.modalCloseBtn} onPress={saveProfile} activeOpacity={0.8} disabled={saving}>
               {saving ? <ActivityIndicator size="small" color="#0A0A0A" /> : <Text style={s.modalCloseBtnText}>SAVE</Text>}
@@ -2047,6 +2115,13 @@ export default function App() {
 
   const returnHome = () => setScreen('home');
 
+  const handleEquipWeapon = async (weaponId) => {
+    const current = userProfile?.equipped_cosmetics || {};
+    const updated = { ...current, weapon: weaponId };
+    await supabase.from('profiles').update({ equipped_cosmetics: updated }).eq('id', user.id);
+    setUserProfile(prev => ({ ...prev, equipped_cosmetics: updated }));
+  };
+
   const handleWalkComplete = (result) => {
     if (result.xpEarned > 0 && userProfile) {
       const todayStr = new Date().toISOString().split("T")[0];
@@ -2223,6 +2298,7 @@ export default function App() {
         visible={showWeaponsModal}
         onClose={() => setShowWeaponsModal(false)}
         userProfile={userProfile}
+        onEquip={handleEquipWeapon}
       />
       <LevelUpModal
         visible={showLevelUpModal}
@@ -2812,7 +2888,8 @@ const s = StyleSheet.create({
     borderTopWidth: 2,
     borderTopColor: "#FFD700",
     paddingVertical: 8,
-    paddingBottom: 20,
+    paddingBottom: Platform.OS === "android" ? 26 : 20,
+    marginBottom: Platform.OS === "android" ? 8 : 0,
   },
   navItem: {
     flex: 1,
@@ -3330,6 +3407,18 @@ const s = StyleSheet.create({
     color: "#666666",
     letterSpacing: 0.5,
   },
+  recentDetails: {
+    fontSize: 11,
+    color: "#FFD700",
+    marginTop: 6,
+    fontWeight: "700",
+  },
+  recentSummary: {
+    fontSize: 11,
+    color: "#9A9A9A",
+    marginTop: 4,
+    lineHeight: 16,
+  },
   recentBadgeWin: {
     backgroundColor: "#FFD700",
     paddingHorizontal: 8,
@@ -3460,6 +3549,31 @@ const s = StyleSheet.create({
   },
   fitnessBtnTextActive: {
     color: "#0A0A0A",
+  },
+  rankDisplay: {
+    backgroundColor: "#111111",
+    borderWidth: 1,
+    borderColor: "#2A2A2A",
+    borderRadius: 6,
+    padding: 14,
+    marginBottom: 20,
+    alignItems: "center",
+  },
+  rankName: {
+    fontSize: 18,
+    fontWeight: "800",
+    letterSpacing: 1,
+  },
+  rankRarity: {
+    fontSize: 12,
+    letterSpacing: 2,
+    marginTop: 2,
+    fontWeight: "700",
+  },
+  rankHint: {
+    fontSize: 11,
+    color: "#555555",
+    marginTop: 6,
   },
   fitnessBtnTextInactive: {
     color: "#888888",
@@ -3695,58 +3809,118 @@ const s = StyleSheet.create({
     letterSpacing: 3,
     marginBottom: 8,
   },
-  weaponPixel: {
-    fontFamily: "monospace",
-    fontSize: 13,
-    lineHeight: 16,
-    textAlign: "center",
+  weaponBadgeImage: {
+    width: 100,
+    height: 100,
     marginBottom: 10,
   },
   weaponBadgeName: {
     color: "#FFFFFF",
-    fontSize: 15,
+    fontSize: 18,
     fontWeight: "800",
     letterSpacing: 1,
+    textAlign: "center",
   },
   weaponBadgeNext: {
     color: "#555555",
-    fontSize: 11,
+    fontSize: 12,
     marginTop: 6,
+    textAlign: "center",
   },
 
   /* ── Weapon badges modal ── */
-  weaponRow: {
+  weaponModalCard: {
+    alignItems: "stretch",
+    paddingHorizontal: 18,
+    paddingVertical: 24,
+  },
+  weaponModalScroll: {
+    width: "100%",
+  },
+  weaponModalScrollContent: {
+    paddingBottom: 8,
+  },
+  weaponSectionLabel: {
+    color: "#FFD700",
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 2,
+    marginBottom: 10,
+    marginTop: 4,
+  },
+  weaponGrid: {
     flexDirection: "row",
-    alignItems: "center",
-    padding: 12,
-    marginBottom: 8,
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  weaponTile: {
+    width: "48%",
+    minHeight: 188,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: "#2A2A2A",
     backgroundColor: "#111111",
-  },
-  weaponPixelBox: {
-    width: 52,
-    height: 52,
-    borderWidth: 1,
     alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#0A0A0A",
   },
-  weaponPixelSmall: {
-    fontFamily: "monospace",
-    fontSize: 7,
-    lineHeight: 9,
-    textAlign: "center",
+  weaponTileLocked: {
+    opacity: 0.45,
   },
-  weaponRowName: {
-    fontSize: 13,
-    fontWeight: "700",
+  weaponTileImage: {
+    width: 72,
+    height: 72,
+    marginBottom: 10,
   },
-  weaponRowRarity: {
+  weaponTileRarity: {
     fontSize: 10,
     fontWeight: "800",
-    letterSpacing: 2,
-    marginTop: 2,
+    letterSpacing: 1.5,
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  weaponTileRarityLocked: {
+    color: "#666666",
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 1.5,
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  weaponTileName: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "700",
+    textAlign: "center",
+    lineHeight: 18,
+  },
+  weaponTileNameLocked: {
+    color: "#888888",
+    fontSize: 14,
+    fontWeight: "700",
+    textAlign: "center",
+    lineHeight: 18,
+  },
+  weaponTileLevel: {
+    color: "#777777",
+    fontSize: 11,
+    textAlign: "center",
+    marginTop: 6,
+  },
+  weaponTileEquipped: {
+    color: "#FFD700",
+    fontSize: 11,
+    fontWeight: "800",
+    marginTop: 8,
+    textAlign: "center",
+  },
+  weaponTileLock: {
+    color: "#B8860B",
+    fontSize: 11,
+    fontWeight: "800",
+    marginTop: 8,
+    textAlign: "center",
   },
 
   /* ── Shared modal item (used in LevelUpModal) ── */
