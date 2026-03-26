@@ -838,27 +838,29 @@ function ProgressScreen({ sessionHistory, calorieData, userProfile, walkHistory 
       {recentSessions.length > 0 && (
         <View style={s.chartCard}>
           <Text style={s.chartTitle}>Recent Sessions</Text>
-          <Text style={s.chartSubtitle}>Last 5 workouts</Text>
-          {recentSessions.map((s2, i) => (
-            <View key={i} style={s.recentRow}>
-              <View style={s.recentLeft}>
-                <Text style={s.recentExercise}>
-                  Session {recentSessions.length - i}
-                </Text>
-                <Text style={s.recentDate}>{s2.date}</Text>
-                <Text style={s.recentDetails}>
-                  {s2.items.length} exercise{s2.items.length === 1 ? "" : "s"}
-                </Text>
-                <Text style={s.recentSummary}>{s2.summary}</Text>
+          <Text style={s.chartSubtitle}>Last 10 workouts</Text>
+          <ScrollView style={s.sessionScrollBox} nestedScrollEnabled showsVerticalScrollIndicator={false}>
+            {recentSessions.map((s2, i) => (
+              <View key={i} style={s.recentRow}>
+                <View style={s.recentLeft}>
+                  <Text style={s.recentExercise}>
+                    Session {recentSessions.length - i}
+                  </Text>
+                  <Text style={s.recentDate}>{s2.date}</Text>
+                  <Text style={s.recentDetails}>
+                    {s2.items.length} exercise{s2.items.length === 1 ? "" : "s"}
+                  </Text>
+                  <Text style={s.recentSummary}>{s2.summary}</Text>
+                </View>
+                <View style={s.recentRight}>
+                  <Text style={s2.completed ? s.recentBadgeWin : s.recentBadgeFail}>
+                    {s2.completed ? '✓ Passed' : '✗ Failed'}
+                  </Text>
+                  <Text style={s.recentXp}>{s2.completed ? `+${s2.xp} XP` : '0 XP'}</Text>
+                </View>
               </View>
-              <View style={s.recentRight}>
-                <Text style={s2.completed ? s.recentBadgeWin : s.recentBadgeFail}>
-                  {s2.completed ? '✓ Passed' : '✗ Failed'}
-                </Text>
-                <Text style={s.recentXp}>{s2.completed ? `+${s2.xp} XP` : '0 XP'}</Text>
-              </View>
-            </View>
-          ))}
+            ))}
+          </ScrollView>
         </View>
       )}
     </ScrollView>
@@ -3382,6 +3384,10 @@ const s = StyleSheet.create({
   },
 
   // Recent sessions list
+  sessionScrollBox: {
+    maxHeight: 340,
+    marginTop: 8,
+  },
   recentRow: {
     flexDirection: "row",
     justifyContent: "space-between",
