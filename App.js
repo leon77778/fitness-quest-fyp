@@ -2844,10 +2844,13 @@ const s = StyleSheet.create({
   },
   calDayToday: {
     backgroundColor: "#FFD700",
+    width: 36,
+    height: 36,
   },
   calDayTextToday: {
-    color: "#0A0A0A",
+    color: "#000000",
     fontWeight: "800",
+    fontSize: 15,
   },
   calDayCompleted: {
     backgroundColor: "#1A1A00",
