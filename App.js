@@ -2839,18 +2839,20 @@ const s = StyleSheet.create({
   },
   calDayText: {
     fontSize: 13,
-    color: "#AAAAAA",
+    color: "#FFFFFF",
     fontWeight: "600",
   },
   calDayToday: {
     backgroundColor: "#FFD700",
-    width: 36,
-    height: 36,
+    width: 38,
+    height: 38,
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
   },
   calDayTextToday: {
     color: "#000000",
-    fontWeight: "800",
-    fontSize: 15,
+    fontWeight: "900",
+    fontSize: 16,
   },
   calDayCompleted: {
     backgroundColor: "#1A1A00",
