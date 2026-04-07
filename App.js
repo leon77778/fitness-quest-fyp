@@ -1816,7 +1816,6 @@ function ProfileScreen({ userProfile, sessionHistory, onSignOut, onUpdateProfile
             { label: 'Age', value: `${userProfile.age} yrs` },
             { label: 'Weight', value: `${userProfile.weight} kg` },
             { label: 'Height', value: `${userProfile.height} cm` },
-            { label: 'Fitness', value: userProfile.fitness_level },
           ].map(stat => (
             <View key={stat.label} style={s.statPill}>
               <Text style={s.statPillLabel}>{stat.label}</Text>
@@ -1870,18 +1869,23 @@ function ProfileScreen({ userProfile, sessionHistory, onSignOut, onUpdateProfile
                 />
               </View>
             ))}
-            <Text style={s.inputLabel}>RANK</Text>
-            <View style={s.rankDisplay}>
-              <Text style={[s.rankName, { color: rankWeapon.rarityColor }]}>{rankWeapon.name}</Text>
-              <Text style={[s.rankRarity, { color: rankWeapon.rarityColor }]}>{rankWeapon.rarity}</Text>
-              <Text style={s.rankHint}>Rank improves as you level up</Text>
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
+              <TouchableOpacity
+                style={[s.modalCloseBtn, { flex: 1, marginTop: 0, backgroundColor: '#1A1A1A', borderWidth: 2, borderColor: '#FFD700' }]}
+                onPress={() => setShowEditModal(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={[s.modalCloseBtnText, { color: '#FFD700' }]}>CANCEL</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[s.modalCloseBtn, { flex: 1, marginTop: 0 }]}
+                onPress={saveProfile}
+                activeOpacity={0.8}
+                disabled={saving}
+              >
+                {saving ? <ActivityIndicator size="small" color="#0A0A0A" /> : <Text style={s.modalCloseBtnText}>SAVE</Text>}
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity style={s.modalCloseBtn} onPress={saveProfile} activeOpacity={0.8} disabled={saving}>
-              {saving ? <ActivityIndicator size="small" color="#0A0A0A" /> : <Text style={s.modalCloseBtnText}>SAVE</Text>}
-            </TouchableOpacity>
-            <TouchableOpacity style={[s.modalCloseBtn, { backgroundColor: '#1A1A1A', marginTop: 8 }]} onPress={() => setShowEditModal(false)} activeOpacity={0.8}>
-              <Text style={[s.modalCloseBtnText, { color: '#FFD700' }]}>CANCEL</Text>
-            </TouchableOpacity>
           </View>
         </View>
       </Modal>
