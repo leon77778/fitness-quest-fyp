@@ -1497,96 +1497,90 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
     );
   }
 
-  const mapCenter = coords[0] || currentLocation;
-  const initialRegion = mapCenter
-    ? { latitude: mapCenter.latitude, longitude: mapCenter.longitude, latitudeDelta: 0.005, longitudeDelta: 0.005 }
-    : null;
+  const openGoogleMaps = () => {
+    if (destinationRef.current && currentLocation) {
+      const url = `https://www.google.com/maps/dir/?api=1&origin=${currentLocation.latitude},${currentLocation.longitude}&destination=${destinationRef.current.latitude},${destinationRef.current.longitude}&travelmode=walking`;
+      Linking.openURL(url);
+    } else if (currentLocation) {
+      const url = `https://www.google.com/maps/@${currentLocation.latitude},${currentLocation.longitude},15z`;
+      Linking.openURL(url);
+    }
+  };
 
   return (
-    <View style={s.root}>
+    <ScrollView style={s.scrollRoot} contentContainerStyle={[s.scrollContent, { paddingTop: 30 }]}>
+      {/* Header */}
+      <Text style={s.appTitle}>Walk Quest</Text>
+      <Text style={[s.appSubtitle, { marginBottom: 20 }]}>GPS tracked · XP rewarded</Text>
+
       {/* Objective card */}
-      <View style={s.walkObjCard}>
+      <View style={s.walkObjCardFull}>
         <Text style={s.walkObjTitle}>🗺️ TODAY'S WALK</Text>
         {walkLoading
           ? <ActivityIndicator size="small" color="#FFD700" />
           : <Text style={s.walkObjText}>{walkObjective?.text ?? 'Loading objective...'}</Text>
         }
-        <View style={s.progressTrack}>
+        <View style={[s.progressTrack, { marginTop: 12 }]}>
           <View style={[s.progressFill, { width: `${progress * 100}%` }]} />
         </View>
+        <Text style={{ color: '#666', fontSize: 11, marginTop: 6, textAlign: 'right' }}>
+          {Math.round(progress * 100)}% complete
+        </Text>
       </View>
-
-      {/* Map */}
-      {MapView ? (
-        !initialRegion ? (
-          <View style={[s.mapView, { backgroundColor: '#111111', justifyContent: 'center', alignItems: 'center' }]}>
-            <ActivityIndicator size="large" color="#FFD700" />
-            <Text style={{ color: '#FFD700', marginTop: 12, fontSize: 13 }}>Getting your location...</Text>
-          </View>
-        ) : (
-        <MapView style={s.mapView} initialRegion={initialRegion} showsUserLocation followsUserLocation={tracking}>
-          {coords.length > 1 && Polyline && (
-            <Polyline coordinates={coords} strokeColor="#FFD700" strokeWidth={3} />
-          )}
-          {destination && Marker && (
-            <Marker coordinate={destination} title="Destination" description={walkObjective?.text}>
-              <View style={{ alignItems: 'center' }}>
-                <Text style={{ fontSize: 30 }}>🏆</Text>
-              </View>
-            </Marker>
-          )}
-        </MapView>
-        )
-      ) : (
-        <View style={[s.mapView, { backgroundColor: '#111111', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 30 }]}>
-          <Text style={{ fontSize: 40, marginBottom: 16 }}>🗺️</Text>
-          <Text style={{ color: '#FFD700', fontSize: 15, fontWeight: '800', letterSpacing: 1, textAlign: 'center', marginBottom: 10 }}>MAP UNAVAILABLE</Text>
-          <Text style={{ color: '#888888', fontSize: 13, textAlign: 'center', lineHeight: 20 }}>
-            Maps require a native build.{'\n'}Run{' '}
-            <Text style={{ color: '#FFD700', fontWeight: '700' }}>npx expo run:android</Text>
-            {'\n'}to enable map tracking.
-          </Text>
-          <Text style={{ color: '#555555', fontSize: 12, marginTop: 16, textAlign: 'center' }}>
-            GPS tracking & XP still work without the map.
-          </Text>
-        </View>
-      )}
 
       {/* Achievement banner */}
       {achieved && (
-        <View style={{ position: 'absolute', top: 80, left: 20, right: 20, backgroundColor: '#FFD700', padding: 16, alignItems: 'center', zIndex: 999 }}>
-          <Text style={{ fontSize: 24 }}>🏆</Text>
-          <Text style={{ color: '#0A0A0A', fontWeight: '800', fontSize: 15, letterSpacing: 1, marginTop: 4 }}>DESTINATION REACHED!</Text>
-          <Text style={{ color: '#0A0A0A', fontSize: 12, marginTop: 2 }}>Objective complete — stop the walk to claim XP</Text>
+        <View style={{ backgroundColor: '#FFD700', padding: 16, alignItems: 'center', marginBottom: 16 }}>
+          <Text style={{ fontSize: 32 }}>🏆</Text>
+          <Text style={{ color: '#0A0A0A', fontWeight: '800', fontSize: 16, letterSpacing: 1, marginTop: 4 }}>DESTINATION REACHED!</Text>
+          <Text style={{ color: '#0A0A0A', fontSize: 12, marginTop: 2 }}>Stop the walk below to claim your XP</Text>
         </View>
       )}
 
-      {/* HUD */}
-      <View style={s.walkHUD}>
-        {permError ? <Text style={s.walkHUDError}>{permError}</Text> : null}
-        <View style={s.walkHUDRow}>
-          <View style={{ alignItems: 'center' }}>
-            <Text style={s.walkHUDValue}>{formatDist(distanceM)}</Text>
-            <Text style={s.walkHUDLabel}>Distance</Text>
-          </View>
-          <View style={{ alignItems: 'center' }}>
-            <Text style={s.walkHUDValue}>{formatTime(elapsedS)}</Text>
-            <Text style={s.walkHUDLabel}>Time</Text>
-          </View>
+      {/* Stats */}
+      <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
+        <View style={[s.statCard, { flex: 1, padding: 20 }]}>
+          <Text style={[s.walkHUDValue, { fontSize: 28 }]}>{formatDist(distanceM)}</Text>
+          <Text style={s.walkHUDLabel}>Distance</Text>
         </View>
+        <View style={[s.statCard, { flex: 1, padding: 20 }]}>
+          <Text style={[s.walkHUDValue, { fontSize: 28 }]}>{formatTime(elapsedS)}</Text>
+          <Text style={s.walkHUDLabel}>Time</Text>
+        </View>
+      </View>
+
+      {/* Google Maps button */}
+      {tracking && (
         <TouchableOpacity
-          style={[s.walkBtn, tracking && s.walkBtnStop, (walkLoading || saving) && { opacity: 0.5 }]}
-          onPress={tracking ? stopWalk : startWalk}
-          disabled={walkLoading || saving}
+          style={[s.primaryBtn, { backgroundColor: '#1A73E8', borderColor: '#1557B0', marginBottom: 12 }]}
+          onPress={openGoogleMaps}
           activeOpacity={0.85}
         >
-          {saving
-            ? <ActivityIndicator size="small" color="#0A0A0A" />
-            : <Text style={s.walkBtnText}>{tracking ? 'STOP WALK' : 'START WALK'}</Text>
-          }
+          <Text style={[s.primaryBtnText, { color: '#FFFFFF' }]}>🗺️ OPEN GOOGLE MAPS</Text>
         </TouchableOpacity>
-      </View>
-    </View>
+      )}
+
+      {/* GPS status */}
+      {tracking && (
+        <View style={{ backgroundColor: '#111', borderWidth: 1, borderColor: '#2A2A2A', padding: 14, marginBottom: 16, alignItems: 'center' }}>
+          <Text style={{ color: '#FFD700', fontSize: 12, fontWeight: '700', letterSpacing: 1 }}>📡 GPS TRACKING ACTIVE</Text>
+          <Text style={{ color: '#666', fontSize: 11, marginTop: 4 }}>Your location is being tracked in the background</Text>
+        </View>
+      )}
+
+      {/* Start / Stop button */}
+      <TouchableOpacity
+        style={[s.walkBtn, tracking && s.walkBtnStop, (walkLoading || saving) && { opacity: 0.5 }]}
+        onPress={tracking ? stopWalk : startWalk}
+        disabled={walkLoading || saving}
+        activeOpacity={0.85}
+      >
+        {saving
+          ? <ActivityIndicator size="small" color="#0A0A0A" />
+          : <Text style={s.walkBtnText}>{tracking ? 'STOP WALK' : 'START WALK'}</Text>
+        }
+      </TouchableOpacity>
+    </ScrollView>
   );
 }
 
@@ -3457,6 +3451,13 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#FFD700",
     padding: 14,
+  },
+  walkObjCardFull: {
+    backgroundColor: "#111111",
+    borderWidth: 2,
+    borderColor: "#FFD700",
+    padding: 18,
+    marginBottom: 16,
   },
   walkObjTitle: {
     fontSize: 11,
