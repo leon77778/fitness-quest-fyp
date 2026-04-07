@@ -1869,21 +1869,21 @@ function ProfileScreen({ userProfile, sessionHistory, onSignOut, onUpdateProfile
                 />
               </View>
             ))}
-            <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
               <TouchableOpacity
-                style={[s.modalCloseBtn, { flex: 1, marginTop: 0, backgroundColor: '#1A1A1A', borderWidth: 2, borderColor: '#FFD700' }]}
+                style={{ flex: 1, paddingVertical: 16, alignItems: 'center', backgroundColor: '#1A1A1A', borderWidth: 2, borderColor: '#FFD700' }}
                 onPress={() => setShowEditModal(false)}
                 activeOpacity={0.8}
               >
-                <Text style={[s.modalCloseBtnText, { color: '#FFD700' }]}>CANCEL</Text>
+                <Text style={{ color: '#FFD700', fontSize: 14, fontWeight: '800', letterSpacing: 2 }}>CANCEL</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[s.modalCloseBtn, { flex: 1, marginTop: 0 }]}
+                style={{ flex: 1, paddingVertical: 16, alignItems: 'center', backgroundColor: '#FFD700' }}
                 onPress={saveProfile}
                 activeOpacity={0.8}
                 disabled={saving}
               >
-                {saving ? <ActivityIndicator size="small" color="#0A0A0A" /> : <Text style={s.modalCloseBtnText}>SAVE</Text>}
+                {saving ? <ActivityIndicator size="small" color="#0A0A0A" /> : <Text style={{ color: '#0A0A0A', fontSize: 14, fontWeight: '800', letterSpacing: 2 }}>SAVE</Text>}
               </TouchableOpacity>
             </View>
           </View>
