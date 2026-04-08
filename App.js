@@ -271,7 +271,7 @@ function groupWorkoutSessions(sessionHistory) {
       lastGroup.date === entryDay &&
       entry.created_at &&
       lastGroup.hasPreciseTime &&
-      Math.abs(lastGroup.anchorTime - entryTime) <= 3 * 60 * 1000;
+      Math.abs(lastGroup.anchorTime - entryTime) <= 10 * 1000;
 
     if (shouldMerge) {
       lastGroup.items.push(entry);
@@ -867,6 +867,9 @@ function ProgressScreen({ sessionHistory, calorieData, userProfile, walkHistory 
                     {s2.completed ? '✓ Passed' : '✗ Failed'}
                   </Text>
                   <Text style={s.recentXp}>{s2.completed ? `+${s2.xp} XP` : '0 XP'}</Text>
+                  <Text style={[s.recentXp, { color: '#FFD700' }]}>
+                    {Math.round(s2.items.reduce((sum, item) => sum + estimateCalories(item, userProfile?.weight), 0))} kcal
+                  </Text>
                 </View>
               </View>
             ))}
@@ -1196,7 +1199,7 @@ function ExerciseScreen({ exercises, onComplete, onFail }) {
   const handleExit = () => {
     clearInterval(restTimerRef.current);
     setShowExitModal(false);
-    onFail(exercise?.name);
+    onFail(exercise?.name, completedList);
   };
 
   return (
@@ -2211,13 +2214,23 @@ export default function App() {
     setScreen('home');
   };
 
-  const handleFail = async (failedExerciseName) => {
-    if (failedExerciseName && user) {
-      const ex = exercises?.find(e => e.name === failedExerciseName) || exercises?.[0];
-      if (ex) {
-        const entry = { user_id: user.id, date: new Date().toISOString().split("T")[0], exercise: ex.name, type: ex.type, target: ex.target, completed: false };
+  const handleFail = async (failedExerciseName, completedBeforeFail = []) => {
+    if (user) {
+      const todayStr = new Date().toISOString().split("T")[0];
+      // Save all exercises completed before failing
+      for (const ex of completedBeforeFail) {
+        const entry = { user_id: user.id, date: todayStr, exercise: ex.name, type: ex.type, target: ex.target, completed: true };
         const { data } = await supabase.from('sessions').insert(entry).select().single();
         if (data) setSessionHistory((prev) => [...prev, data]);
+      }
+      // Save the failed exercise
+      if (failedExerciseName) {
+        const ex = exercises?.find(e => e.name === failedExerciseName) || exercises?.[0];
+        if (ex) {
+          const entry = { user_id: user.id, date: todayStr, exercise: ex.name, type: ex.type, target: ex.target, completed: false };
+          const { data } = await supabase.from('sessions').insert(entry).select().single();
+          if (data) setSessionHistory((prev) => [...prev, data]);
+        }
       }
     }
     setAiExercise(null);
