@@ -844,38 +844,37 @@ function ProgressScreen({ sessionHistory, calorieData, userProfile, walkHistory 
 
       <CalorieChart title="Calorie Loss Overview" data={calorieData} />
 
-      {/* Recent sessions — one card per session */}
+      {/* Recent sessions */}
       {recentSessions.length > 0 && (
-        <>
-          <Text style={[s.chartTitle, { marginBottom: 4 }]}>Recent Sessions</Text>
-          <Text style={[s.chartSubtitle, { marginBottom: 12 }]}>Last 10 workouts</Text>
-          {recentSessions.map((s2, i) => (
-            <View key={i} style={[s.chartCard, { marginBottom: 10, padding: 16 }]}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <Text style={{ color: '#FFD700', fontSize: 13, fontWeight: '800', letterSpacing: 1 }}>
-                  SESSION {recentSessions.length - i}
-                </Text>
-                <View style={{ backgroundColor: s2.completed ? '#FFD700' : '#2A2A2A', paddingHorizontal: 10, paddingVertical: 4 }}>
-                  <Text style={{ color: s2.completed ? '#000' : '#888', fontSize: 11, fontWeight: '800', letterSpacing: 1 }}>
-                    {s2.completed ? '✓ PASSED' : '✗ FAILED'}
+        <View style={s.chartCard}>
+          <Text style={s.chartTitle}>Recent Sessions</Text>
+          <Text style={s.chartSubtitle}>Last 10 workouts</Text>
+          <ScrollView style={s.sessionScrollBox} nestedScrollEnabled showsVerticalScrollIndicator={false}>
+            {recentSessions.map((s2, i) => (
+              <View key={i} style={[s.recentRow, { flexDirection: 'column', paddingVertical: 12 }]}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <Text style={{ color: '#FFD700', fontSize: 13, fontWeight: '800', letterSpacing: 1 }}>
+                    SESSION {recentSessions.length - i}
                   </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Text style={{ color: '#FFD700', fontSize: 12, fontWeight: '700' }}>{s2.completed ? `+${s2.xp} XP` : '0 XP'}</Text>
+                    <View style={{ backgroundColor: s2.completed ? '#FFD700' : '#2A2A2A', paddingHorizontal: 8, paddingVertical: 3 }}>
+                      <Text style={{ color: s2.completed ? '#000' : '#888', fontSize: 11, fontWeight: '800' }}>
+                        {s2.completed ? '✓ PASSED' : '✗ FAILED'}
+                      </Text>
+                    </View>
+                  </View>
                 </View>
-              </View>
-              <Text style={{ color: '#666', fontSize: 11, marginBottom: 8, letterSpacing: 0.5 }}>{s2.date}</Text>
-              <View style={{ borderTopWidth: 1, borderTopColor: '#1A1A1A', paddingTop: 8 }}>
+                <Text style={{ color: '#666', fontSize: 11, marginBottom: 6 }}>{s2.date}</Text>
                 {s2.items.map((item, j) => (
-                  <Text key={j} style={{ color: '#AAAAAA', fontSize: 12, marginBottom: 3 }}>
+                  <Text key={j} style={{ color: '#AAAAAA', fontSize: 12, marginBottom: 2 }}>
                     · {item.exercise} — {item.type === 'reps' ? `${item.target} reps` : `${item.target}s`}
                   </Text>
                 ))}
               </View>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#1A1A1A' }}>
-                <Text style={{ color: '#666', fontSize: 11 }}>{s2.items.length} exercises</Text>
-                <Text style={{ color: '#FFD700', fontSize: 12, fontWeight: '700' }}>{s2.completed ? `+${s2.xp} XP` : '0 XP'}</Text>
-              </View>
-            </View>
-          ))}
-        </>
+            ))}
+          </ScrollView>
+        </View>
       )}
 
       {/* Walk history */}
