@@ -135,10 +135,10 @@ function getCalorieData(sessionHistory, weightKg, walkHistory = []) {
     date.setDate(today.getDate() - (6 - i));
     const dateStr = date.toISOString().split("T")[0];
     const exerciseCal = sessionHistory
-      .filter((s) => s.completed && s.date === dateStr)
+      .filter((s) => s.date === dateStr)
       .reduce((sum, s) => sum + estimateCalories(s, weightKg), 0);
     const walkCal = walkHistory
-      .filter((w) => w.completed && w.date === dateStr)
+      .filter((w) => w.date === dateStr)
       .reduce((sum, w) => sum + estimateWalkCalories(w, weightKg), 0);
     return { day: DAY_NAMES[date.getDay()], cal: Math.round(exerciseCal + walkCal) };
   });
