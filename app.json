@@ -15,7 +15,7 @@
       "supportsTablet": true
     },
     "android": {
-      "package": "com.anonymous.fitnessquest",
+      "package": "com.rpgfit.app",
       "softwareKeyboardLayoutMode": "pan",
       "config": {
         "googleMaps": {
