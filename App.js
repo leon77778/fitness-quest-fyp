@@ -851,26 +851,23 @@ function ProgressScreen({ sessionHistory, calorieData, userProfile, walkHistory 
           <Text style={s.chartSubtitle}>Last 10 workouts</Text>
           <ScrollView style={s.sessionScrollBox} nestedScrollEnabled showsVerticalScrollIndicator={false}>
             {recentSessions.map((s2, i) => (
-              <View key={i} style={[s.recentRow, { flexDirection: 'column', paddingVertical: 12 }]}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                  <Text style={{ color: '#FFD700', fontSize: 13, fontWeight: '800', letterSpacing: 1 }}>
-                    SESSION {recentSessions.length - i}
+              <View key={i} style={s.recentRow}>
+                <View style={s.recentLeft}>
+                  <Text style={s.recentExercise}>
+                    Session {recentSessions.length - i}
                   </Text>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <Text style={{ color: '#FFD700', fontSize: 12, fontWeight: '700' }}>{s2.completed ? `+${s2.xp} XP` : '0 XP'}</Text>
-                    <View style={{ backgroundColor: s2.completed ? '#FFD700' : '#2A2A2A', paddingHorizontal: 8, paddingVertical: 3 }}>
-                      <Text style={{ color: s2.completed ? '#000' : '#888', fontSize: 11, fontWeight: '800' }}>
-                        {s2.completed ? '✓ PASSED' : '✗ FAILED'}
-                      </Text>
-                    </View>
-                  </View>
+                  <Text style={s.recentDate}>{s2.date}</Text>
+                  <Text style={s.recentDetails}>
+                    {s2.items.length} exercise{s2.items.length === 1 ? "" : "s"}
+                  </Text>
+                  <Text style={s.recentSummary}>{s2.summary}</Text>
                 </View>
-                <Text style={{ color: '#666', fontSize: 11, marginBottom: 6 }}>{s2.date}</Text>
-                {s2.items.map((item, j) => (
-                  <Text key={j} style={{ color: '#AAAAAA', fontSize: 12, marginBottom: 2 }}>
-                    · {item.exercise} — {item.type === 'reps' ? `${item.target} reps` : `${item.target}s`}
+                <View style={s.recentRight}>
+                  <Text style={s2.completed ? s.recentBadgeWin : s.recentBadgeFail}>
+                    {s2.completed ? '✓ Passed' : '✗ Failed'}
                   </Text>
-                ))}
+                  <Text style={s.recentXp}>{s2.completed ? `+${s2.xp} XP` : '0 XP'}</Text>
+                </View>
               </View>
             ))}
           </ScrollView>
