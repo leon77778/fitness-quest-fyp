@@ -1401,23 +1401,92 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
 
   const locationSub = useRef(null);
   const timerRef = useRef(null);
+  const saveStateRef = useRef(null);
   const lastCoordRef = useRef(null);
   const distanceRef = useRef(0);
   const elapsedRef = useRef(0);
   const destinationRef = useRef(null);
   const achievedRef = useRef(false);
 
-  // Get current location as soon as the map opens
+  const WALK_STATE_KEY = '@rpgfit:activeWalk';
+
+  const saveWalkState = async () => {
+    try {
+      await AsyncStorage.setItem(WALK_STATE_KEY, JSON.stringify({
+        tracking: true,
+        distanceM: distanceRef.current,
+        elapsedS: elapsedRef.current,
+        destination: destinationRef.current,
+        achieved: achievedRef.current,
+        lastCoord: lastCoordRef.current,
+        walkObjective,
+      }));
+    } catch (_) {}
+  };
+
+  const clearWalkState = async () => {
+    try { await AsyncStorage.removeItem(WALK_STATE_KEY); } catch (_) {}
+  };
+
+  // Get current location + restore any in-progress walk on mount
   useEffect(() => {
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') return;
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       setCurrentLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+
+      // Restore walk state if app was killed mid-walk
+      try {
+        const raw = await AsyncStorage.getItem(WALK_STATE_KEY);
+        if (raw) {
+          const saved = JSON.parse(raw);
+          if (saved.tracking) {
+            distanceRef.current = saved.distanceM;
+            elapsedRef.current = saved.elapsedS;
+            destinationRef.current = saved.destination;
+            achievedRef.current = saved.achieved;
+            lastCoordRef.current = saved.lastCoord;
+            setDistanceM(saved.distanceM);
+            setElapsedS(saved.elapsedS);
+            setDestination(saved.destination);
+            setAchieved(saved.achieved);
+            setTracking(true);
+
+            // Resume GPS tracking
+            const sub = await Location.watchPositionAsync(
+              { accuracy: Location.Accuracy.High, distanceInterval: 5, timeInterval: 3000 },
+              (l) => {
+                const newCoord = { latitude: l.coords.latitude, longitude: l.coords.longitude };
+                if (lastCoordRef.current) {
+                  const delta = haversineDistance(lastCoordRef.current, newCoord);
+                  if (delta > 1) {
+                    lastCoordRef.current = newCoord;
+                    distanceRef.current += delta;
+                    setCoords((prev) => [...prev, newCoord]);
+                    setDistanceM(distanceRef.current);
+                  }
+                  if (destinationRef.current && !achievedRef.current) {
+                    const distToDest = haversineDistance(newCoord, destinationRef.current);
+                    if (distToDest <= 30) { achievedRef.current = true; setAchieved(true); }
+                  }
+                }
+              }
+            );
+            locationSub.current = sub;
+            timerRef.current = setInterval(() => {
+              elapsedRef.current += 1;
+              setElapsedS(elapsedRef.current);
+            }, 1000);
+            saveStateRef.current = setInterval(saveWalkState, 5000);
+          }
+        }
+      } catch (_) {}
     })();
     return () => {
       locationSub.current?.remove();
       clearInterval(timerRef.current);
+      clearInterval(saveStateRef.current);
     };
   }, []);
 
@@ -1478,11 +1547,16 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
       elapsedRef.current += 1;
       setElapsedS(elapsedRef.current);
     }, 1000);
+
+    // Save walk state every 5 seconds
+    saveStateRef.current = setInterval(saveWalkState, 5000);
   };
 
   const stopWalk = async () => {
     locationSub.current?.remove();
     clearInterval(timerRef.current);
+    clearInterval(saveStateRef.current);
+    await clearWalkState();
     setTracking(false);
     setSaving(true);
 
