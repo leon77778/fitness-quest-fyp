@@ -120,17 +120,27 @@ function estimateCalories(session, weightKg = DEFAULT_WEIGHT_KG) {
   return met * weight * durationHours;
 }
 
-function getCalorieData(sessionHistory, weightKg) {
+function estimateWalkCalories(walk, weightKg = DEFAULT_WEIGHT_KG) {
+  const WALK_MET = 3.5;
+  const weight = weightKg ?? DEFAULT_WEIGHT_KG;
+  const durationHours = walk.duration_s / 3600;
+  return WALK_MET * weight * durationHours;
+}
+
+function getCalorieData(sessionHistory, weightKg, walkHistory = []) {
   const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const today = new Date();
   return Array.from({ length: 7 }, (_, i) => {
     const date = new Date(today);
     date.setDate(today.getDate() - (6 - i));
     const dateStr = date.toISOString().split("T")[0];
-    const cal = sessionHistory
+    const exerciseCal = sessionHistory
       .filter((s) => s.completed && s.date === dateStr)
       .reduce((sum, s) => sum + estimateCalories(s, weightKg), 0);
-    return { day: DAY_NAMES[date.getDay()], cal: Math.round(cal) };
+    const walkCal = walkHistory
+      .filter((w) => w.completed && w.date === dateStr)
+      .reduce((sum, w) => sum + estimateWalkCalories(w, weightKg), 0);
+    return { day: DAY_NAMES[date.getDay()], cal: Math.round(exerciseCal + walkCal) };
   });
 }
 
@@ -882,7 +892,7 @@ function ProgressScreen({ sessionHistory, calorieData, userProfile, walkHistory 
                     <Text style={s.recentExercise}>🚶 Walk {walkHistory.length - i}</Text>
                     <Text style={s.recentDate}>{walk.date}</Text>
                     <Text style={s.recentDetails}>{walk.objective}</Text>
-                    <Text style={s.recentSummary}>{distStr} · {mins}:{secs}</Text>
+                    <Text style={s.recentSummary}>{distStr} · {mins}:{secs} · {Math.round(estimateWalkCalories(walk, userProfile?.weight))} kcal</Text>
                   </View>
                   <View style={s.recentRight}>
                     <Text style={walk.completed ? s.recentBadgeWin : s.recentBadgeFail}>
@@ -2071,7 +2081,7 @@ export default function App() {
     setOnboardingLoading(false);
   };
 
-  const calorieData = getCalorieData(sessionHistory, userProfile?.weight);
+  const calorieData = getCalorieData(sessionHistory, userProfile?.weight, walkHistory);
 
   useEffect(() => {
     if (screen === 'home' && !aiExercise) fetchAIExercise();
