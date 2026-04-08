@@ -968,10 +968,11 @@ ${historyContext}`;
       if (reply) {
         setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
       } else {
-        setMessages((prev) => [...prev, { role: "assistant", content: "My vision is clouded... Please try again, adventurer." }]);
+        const errMsg = data.error?.message || data.error?.code || `HTTP ${res.status}`;
+        setMessages((prev) => [...prev, { role: "assistant", content: `Error: ${errMsg}` }]);
       }
     } catch (err) {
-      setMessages((prev) => [...prev, { role: "assistant", content: "I cannot reach the realm of knowledge right now. Check your connection and try again." }]);
+      setMessages((prev) => [...prev, { role: "assistant", content: `Network error: ${err.message}` }]);
     }
     setLoading(false);
   };
