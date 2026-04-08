@@ -5,16 +5,6 @@ import * as Linking from "expo-linking";
 import { Video, ResizeMode } from "expo-av";
 import * as Location from "expo-location";
 
-// react-native-maps is not bundled in Expo Go (SDK 50+) — load safely
-let MapView = null;
-let Polyline = null;
-let Marker = null;
-try {
-  const RNMaps = require("react-native-maps");
-  MapView = RNMaps.default;
-  Polyline = RNMaps.Polyline;
-  Marker = RNMaps.Marker;
-} catch (_) {}
 import {
   SafeAreaView,
   StatusBar,
@@ -160,10 +150,6 @@ const MONTH_NAMES = [
 ];
 const DAY_HEADERS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 
-function getDailyExercise() {
-  const dayIndex = new Date().getDate() % EXERCISES.length;
-  return EXERCISES[dayIndex];
-}
 
 function getDailyExercises() {
   const base = new Date().getDate();
@@ -1323,64 +1309,6 @@ function FailedScreen({ onReturn }) {
 
 // ══════════════════════════════════════════
 //  WEB MAP (Leaflet via CDN — only used on web platform)
-// ══════════════════════════════════════════
-function WebMapView({ coords, initialRegion }) {
-  const containerRef = useRef(null);
-  const leafletMapRef = useRef(null);
-  const polylineRef = useRef(null);
-
-  useEffect(() => {
-    if (Platform.OS !== 'web') return;
-
-    const initLeaflet = () => {
-      if (!containerRef.current || leafletMapRef.current) return;
-      const L = window.L;
-      const map = L.map(containerRef.current).setView(
-        [initialRegion.latitude, initialRegion.longitude], 15
-      );
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors',
-      }).addTo(map);
-      leafletMapRef.current = map;
-    };
-
-    if (!document.getElementById('leaflet-css')) {
-      const link = document.createElement('link');
-      link.id = 'leaflet-css';
-      link.rel = 'stylesheet';
-      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-      document.head.appendChild(link);
-    }
-
-    if (window.L) {
-      initLeaflet();
-    } else if (!document.getElementById('leaflet-js')) {
-      const script = document.createElement('script');
-      script.id = 'leaflet-js';
-      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-      script.onload = initLeaflet;
-      document.head.appendChild(script);
-    } else {
-      // script already loading — poll briefly
-      const poll = setInterval(() => { if (window.L) { clearInterval(poll); initLeaflet(); } }, 100);
-    }
-
-    return () => {
-      if (leafletMapRef.current) { leafletMapRef.current.remove(); leafletMapRef.current = null; }
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!leafletMapRef.current || !window.L || coords.length < 2) return;
-    const L = window.L;
-    if (polylineRef.current) polylineRef.current.remove();
-    const latlngs = coords.map(c => [c.latitude, c.longitude]);
-    polylineRef.current = L.polyline(latlngs, { color: '#FFD700', weight: 4 }).addTo(leafletMapRef.current);
-    leafletMapRef.current.panTo(latlngs[latlngs.length - 1]);
-  }, [coords]);
-
-  return <View ref={containerRef} style={s.mapView} />;
-}
 
 // ══════════════════════════════════════════
 //  WALK SCREEN
@@ -1858,8 +1786,6 @@ function ProfileScreen({ userProfile, sessionHistory, onSignOut, onUpdateProfile
     setShowEditModal(false);
   };
 
-  const editLevel = userProfile ? Math.floor(userProfile.xp / 200) + 1 : 1;
-  const rankWeapon = [...WEAPONS].reverse().find(w => editLevel >= w.unlockLevel) || WEAPONS[0];
 
   return (
     <ScrollView style={s.scrollRoot} contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
