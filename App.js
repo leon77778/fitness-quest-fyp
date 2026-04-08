@@ -863,6 +863,39 @@ function ProgressScreen({ sessionHistory, calorieData, userProfile, walkHistory 
           </ScrollView>
         </View>
       )}
+
+      {/* Walk history */}
+      {walkHistory && walkHistory.length > 0 && (
+        <View style={s.chartCard}>
+          <Text style={s.chartTitle}>Walk History</Text>
+          <Text style={s.chartSubtitle}>Last 10 walks</Text>
+          <ScrollView style={s.sessionScrollBox} nestedScrollEnabled showsVerticalScrollIndicator={false}>
+            {walkHistory.slice(0, 10).map((walk, i) => {
+              const distStr = walk.distance_m >= 1000
+                ? `${(walk.distance_m / 1000).toFixed(2)}km`
+                : `${Math.round(walk.distance_m)}m`;
+              const mins = Math.floor(walk.duration_s / 60);
+              const secs = String(walk.duration_s % 60).padStart(2, '0');
+              return (
+                <View key={i} style={s.recentRow}>
+                  <View style={s.recentLeft}>
+                    <Text style={s.recentExercise}>🚶 Walk {walkHistory.length - i}</Text>
+                    <Text style={s.recentDate}>{walk.date}</Text>
+                    <Text style={s.recentDetails}>{walk.objective}</Text>
+                    <Text style={s.recentSummary}>{distStr} · {mins}:{secs}</Text>
+                  </View>
+                  <View style={s.recentRight}>
+                    <Text style={walk.completed ? s.recentBadgeWin : s.recentBadgeFail}>
+                      {walk.completed ? '✓ Done' : '✗ Incomplete'}
+                    </Text>
+                    <Text style={s.recentXp}>{walk.xp_earned > 0 ? `+${walk.xp_earned} XP` : '0 XP'}</Text>
+                  </View>
+                </View>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
     </ScrollView>
   );
 }
