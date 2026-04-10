@@ -17,6 +17,7 @@ export function estimateCalories(session) {
  * derived from actual session history.
  */
 export function getWeeklyCalories(sessionHistory) {
+  // Builds the last-7-days chart dataset from saved completed sessions.
   const days = [];
   for (let i = 6; i >= 0; i--) {
     const d = new Date();

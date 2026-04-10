@@ -6,6 +6,8 @@ export const MONTH_NAMES = [
 export const DAY_HEADERS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 
 export function getCalendarDays(year, month) {
+  // Returns a padded month array for calendar rendering.
+  // Leading nulls shift day 1 under the correct weekday.
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const days = [];

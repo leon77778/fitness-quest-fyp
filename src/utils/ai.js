@@ -1,6 +1,8 @@
 import { GROQ_API_KEY, GROQ_URL } from "../config";
 
 export async function getAIExercise(sessionHistory, userProfile) {
+  // Builds a single-exercise recommendation from recent history and profile data,
+  // then validates the AI response before returning it to the UI layer.
   const historyText =
     sessionHistory.length === 0
       ? "This is the user's first session ever. Start them off easy."
@@ -66,6 +68,8 @@ Respond ONLY with valid JSON, no extra text. Use this exact format:
 }
 
 export async function getOracleReply(messages, sessionHistory, userProfile) {
+  // Builds the system prompt for the Oracle chat by combining the current
+  // conversation with recent workouts and profile information.
   const historyContext =
     sessionHistory.length > 0
       ? "\n\nUser's recent exercise history:\n" +

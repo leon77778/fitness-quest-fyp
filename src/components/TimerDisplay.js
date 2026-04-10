@@ -3,6 +3,8 @@ import { View, Text, Animated, Easing } from "react-native";
 import s from "../styles/styles";
 
 export default function TimerDisplay({ duration, onFinish }) {
+  // Countdown display for timed exercises.
+  // It animates a progress bar and notifies the parent when time runs out.
   const [secondsLeft, setSecondsLeft] = useState(duration);
   const progress = useRef(new Animated.Value(0)).current;
 

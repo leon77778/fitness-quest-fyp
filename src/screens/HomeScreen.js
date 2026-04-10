@@ -4,6 +4,8 @@ import CalorieChart from "../components/CalorieChart";
 import s from "../styles/styles";
 
 export default function HomeScreen({ onStart, aiExercise, aiLoading, sessionHistory }) {
+  // Main landing screen for the modular UI version.
+  // It shows today's quest, AI loading state, and the weekly calorie summary.
   const exercise = aiExercise || getDailyExercise();
 
   return (

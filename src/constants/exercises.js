@@ -34,6 +34,7 @@ export const EXERCISES = [
 ];
 
 export function getDailyExercise() {
+  // Simple deterministic fallback that rotates the default exercise by day-of-month.
   const dayIndex = new Date().getDate() % EXERCISES.length;
   return EXERCISES[dayIndex];
 }

@@ -3,6 +3,8 @@ import { getWeeklyCalories } from "../utils/calories";
 import s from "../styles/styles";
 
 export default function CalorieChart({ title, sessionHistory }) {
+  // Presentational wrapper around the weekly calorie utility.
+  // It handles the empty state and renders a compact 7-day bar chart.
   const data = getWeeklyCalories(sessionHistory || []);
   const maxCal = Math.max(...data.map((d) => d.cal), 1);
   const total = data.reduce((sum, d) => sum + d.cal, 0);

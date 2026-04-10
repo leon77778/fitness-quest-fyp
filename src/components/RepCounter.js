@@ -3,6 +3,8 @@ import { View, Text, TouchableOpacity, Animated } from "react-native";
 import s from "../styles/styles";
 
 export default function RepCounter({ target, onFinish }) {
+  // Interaction widget for rep-based exercises.
+  // Each tap increments progress, animates feedback, and completes once the target is reached.
   const [count, setCount] = useState(0);
   const scale = useRef(new Animated.Value(1)).current;
 

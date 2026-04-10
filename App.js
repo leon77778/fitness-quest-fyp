@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "./lib/supabase";
-import * as Linking from "expo-linking";
+import * as Linking from "expo-linking";// 
 import { Video, ResizeMode } from "expo-av";
-import * as Location from "expo-location";
+import * as Location from "expo-location"; //gps location
 
 import {
   SafeAreaView,
@@ -102,6 +102,9 @@ const DEFAULT_WEIGHT_KG = 70;
 const DEFAULT_MET = 5.0;
 
 function estimateCalories(session, weightKg = DEFAULT_WEIGHT_KG) {
+  // Converts one saved exercise entry into an estimated calorie burn value.
+  // Repetition exercises are first approximated into duration, then both
+  // reps and timer exercises use a MET-style energy formula.
   const met = EXERCISE_MET[session.exercise] ?? DEFAULT_MET;
   const weight = weightKg ?? DEFAULT_WEIGHT_KG;
   const durationHours = session.type === "reps"
@@ -111,18 +114,21 @@ function estimateCalories(session, weightKg = DEFAULT_WEIGHT_KG) {
 }
 
 function estimateWalkCalories(walk, weightKg = DEFAULT_WEIGHT_KG) {
+  // Estimates calories for walking sessions using the recorded duration in seconds.
   const WALK_MET = 3.5;
   const weight = weightKg ?? DEFAULT_WEIGHT_KG;
   const durationHours = walk.duration_s / 3600;
   return WALK_MET * weight * durationHours;
 }
 
-function getCalorieData(sessionHistory, weightKg, walkHistory = []) {
+function getCalorieData(sessionHistory, weightKg, walkHistory = [], weekOffset = 0) {
+  // Aggregates exercise and walking calories into a 7-day chart window.
+  // weekOffset 0 means the current week window ending today, 1 means the previous 7-day window, etc.
   const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const today = new Date();
   return Array.from({ length: 7 }, (_, i) => {
     const date = new Date(today);
-    date.setDate(today.getDate() - (6 - i));
+    date.setDate(today.getDate() - (weekOffset * 7) - (6 - i));
     const dateStr = date.toISOString().split("T")[0];
     const exerciseCal = sessionHistory
       .filter((s) => s.date === dateStr)
@@ -130,12 +136,24 @@ function getCalorieData(sessionHistory, weightKg, walkHistory = []) {
     const walkCal = walkHistory
       .filter((w) => w.date === dateStr)
       .reduce((sum, w) => sum + estimateWalkCalories(w, weightKg), 0);
-    return { day: DAY_NAMES[date.getDay()], cal: Math.round(exerciseCal + walkCal) };
+    return { day: DAY_NAMES[date.getDay()], cal: Math.round(exerciseCal + walkCal), date: dateStr };
   });
+}
+
+function formatChartRange(data) {
+  if (!data || data.length === 0) return "Last 7 days";
+  const start = new Date(data[0].date);
+  const end = new Date(data[data.length - 1].date);
+  const sameMonth = start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear();
+  const startLabel = start.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  const endLabel = end.toLocaleDateString("en-GB", sameMonth ? { day: "numeric", month: "short" } : { day: "numeric", month: "short" });
+  return `${startLabel} - ${endLabel}`;
 }
 
 // ── Calendar helper ──
 function getCalendarDays(year, month) {
+  // Builds the padded month grid for the progress calendar.
+  // Null entries at the start offset day 1 to the correct weekday column.
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const days = [];
@@ -152,12 +170,15 @@ const DAY_HEADERS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 
 
 function getDailyExercises() {
+  // Local fallback workout rotation used when no AI-generated plan is available.
   const base = new Date().getDate();
   return Array.from({ length: 5 }, (_, i) => EXERCISES[(base + i) % EXERCISES.length]);
 }
 
 // ── Ask Llama AI for today's 5-exercise session ──
 async function getAIExercise(sessionHistory, userProfile, difficultyModifiers = {}) {
+  // Sends the user's recent history, profile, and difficulty hints to Groq,
+  // then validates the returned JSON before merging it with local exercise metadata.
   const historyText = sessionHistory.length === 0
     ? "This is the user's first session ever. Start them off easy."
     : sessionHistory.slice(-20).map((s, i) =>
@@ -235,11 +256,14 @@ Respond ONLY with valid JSON — an array of exactly 5 exercises, no extra text:
 
 // ── XP / Streak helpers ──
 function calculateXP(exercise) {
+  // Basic progression rule for completed exercises.
   if (exercise.type === "reps") return exercise.target * 2;
   return exercise.target * 1;
 }
 
 function groupWorkoutSessions(sessionHistory) {
+  // Groups nearby exercise records into workout-sized bundles so progress history
+  // reads like sessions rather than isolated database rows.
   const sorted = [...sessionHistory].sort((a, b) => {
     const aTime = new Date(a.created_at || a.date).getTime();
     const bTime = new Date(b.created_at || b.date).getTime();
@@ -285,6 +309,8 @@ function groupWorkoutSessions(sessionHistory) {
 }
 
 function computeUpdatedProfile(profile, xpEarned, todayStr) {
+  // Applies XP and streak changes after a successful session.
+  // This is the central place where progression data is recalculated.
   const last = profile.last_session_date;
   let newStreak = 1;
   if (last) {
@@ -305,6 +331,8 @@ function computeUpdatedProfile(profile, xpEarned, todayStr) {
 
 // ── Adaptive difficulty: analyse last 5 attempts per exercise ──
 function computeExerciseDifficulty(sessionHistory) {
+  // Looks at the most recent attempts for each exercise and produces a small
+  // modifier object that tells the AI whether to reduce, keep, or increase difficulty.
   const byExercise = {};
   for (const s of [...sessionHistory].reverse()) {
     if (!byExercise[s.exercise]) byExercise[s.exercise] = [];
@@ -326,6 +354,8 @@ function computeExerciseDifficulty(sessionHistory) {
 // ── Haversine distance between two GPS coords (metres) ──
 // Calculate destination point given start, distance (metres), and bearing (degrees)
 function destinationPoint(start, distanceM, bearingDeg) {
+  // Generates a destination coordinate from the user's current location, a distance,
+  // and a bearing. The walking feature uses this to create a target point.
   const R = 6371000;
   const bearing = bearingDeg * Math.PI / 180;
   const lat1 = start.latitude * Math.PI / 180;
@@ -336,6 +366,8 @@ function destinationPoint(start, distanceM, bearingDeg) {
 }
 
 function haversineDistance(a, b) {
+  // Estimates straight-line distance between two GPS coordinates in metres.
+  // This drives the live walking progress display and completion threshold.
   const x = (b.longitude - a.longitude) * 111320 * Math.cos(a.latitude * Math.PI / 180);
   const y = (b.latitude - a.latitude) * 110540;
   return Math.sqrt(x * x + y * y);
@@ -343,6 +375,7 @@ function haversineDistance(a, b) {
 
 // ── Ask AI for a walk objective ──
 async function getAIWalkObjective(userProfile) {
+  // Requests a short walking goal from the AI and expects strict JSON in response.
   const profileText = userProfile
     ? `User: ${userProfile.fitness_level}, weight ${userProfile.weight}kg`
     : "User fitness level unknown";
@@ -376,24 +409,43 @@ Distance range: 100-2000m. Adjust based on fitness level.`;
 // ══════════════════════════════════════════
 //  CALORIE BAR CHART (shared component)
 // ══════════════════════════════════════════
-function CalorieChart({ title, data }) {
+function CalorieChart({ title, data, weekOffset, onPrevWeek, onNextWeek }) {
+  // Reusable visual component for weekly calorie totals.
+  // It only renders prepared data and does not own any domain logic.
   const maxCal = Math.max(...data.map((d) => d.cal), 1);
   const total = data.reduce((sum, d) => sum + d.cal, 0);
   return (
     <View style={s.chartCard}>
-      <Text style={s.chartTitle}>{title || "Calories Burned"}</Text>
-      <Text style={s.chartSubtitle}>Last 7 days</Text>
-      <View style={s.chartArea}>
-        {data.map((item, i) => {
-          const barH = (item.cal / maxCal) * 120;
-          return (
-            <View key={i} style={s.chartCol}>
-              <Text style={s.chartVal}>{item.cal || ""}</Text>
-              <View style={[s.chartBar, { height: Math.max(barH, item.cal > 0 ? 4 : 0) }]} />
-              <Text style={s.chartLabel}>{item.day}</Text>
-            </View>
-          );
-        })}
+      <View style={s.chartHeaderRow}>
+        <View style={s.chartHeaderText}>
+          <Text style={s.chartTitle}>{title || "Calories Burned"}</Text>
+          <Text style={s.chartSubtitle}>{formatChartRange(data)}</Text>
+        </View>
+      </View>
+      <View style={s.chartBodyRow}>
+        <TouchableOpacity style={s.chartSideBtn} onPress={onPrevWeek} activeOpacity={0.8}>
+          <Text style={s.chartNavText}>◀</Text>
+        </TouchableOpacity>
+        <View style={s.chartArea}>
+          {data.map((item, i) => {
+            const barH = (item.cal / maxCal) * 120;
+            return (
+              <View key={i} style={s.chartCol}>
+                <Text style={s.chartVal}>{item.cal || ""}</Text>
+                <View style={[s.chartBar, { height: Math.max(barH, item.cal > 0 ? 4 : 0) }]} />
+                <Text style={s.chartLabel}>{item.day}</Text>
+              </View>
+            );
+          })}
+        </View>
+        <TouchableOpacity
+          style={[s.chartSideBtn, weekOffset === 0 && s.chartNavBtnDisabled]}
+          onPress={onNextWeek}
+          disabled={weekOffset === 0}
+          activeOpacity={0.8}
+        >
+          <Text style={[s.chartNavText, weekOffset === 0 && s.chartNavTextDisabled]}>▶</Text>
+        </TouchableOpacity>
       </View>
       <View style={s.chartTotalRow}>
         <Text style={s.chartTotalLabel}>Total this week</Text>
@@ -407,6 +459,9 @@ function CalorieChart({ title, data }) {
 //  AUTH SCREEN (login / sign up)
 // ══════════════════════════════════════════
 function LoginScreen({ mode, onToggleMode, onLogin, onSignup, onForgotPassword, onSetNewPassword, loading, error, verificationSent, onBackToLogin, passwordResetSent }) {
+  // Consolidated authentication screen.
+  // Depending on `mode`, it handles sign-in, sign-up, password recovery,
+  // and password reset after a recovery deep link is opened.
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
@@ -563,6 +618,8 @@ function LoginScreen({ mode, onToggleMode, onLogin, onSignup, onForgotPassword, 
 //  ONBOARDING SCREEN
 // ══════════════════════════════════════════
 function OnboardingScreen({ onComplete, loading, error }) {
+  // First-run setup that collects the profile fields used throughout the app
+  // for AI personalisation, calorie estimates, and progression displays.
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
   const [weight, setWeight] = useState('');
@@ -653,10 +710,14 @@ function OnboardingScreen({ onComplete, loading, error }) {
 // ══════════════════════════════════════════
 //  HOME SCREEN
 // ══════════════════════════════════════════
-function HomeScreen({ onStart, aiExercise, aiLoading, calorieData, onLogout, userProfile }) {
+function HomeScreen({ onStart, aiExercise, aiLoading, sessionHistory, walkHistory, onLogout, userProfile }) {
+  // Main dashboard shown after auth and onboarding.
+  // It surfaces the daily quest, the user's current progression state, and the weekly chart.
+  const [weekOffset, setWeekOffset] = useState(0);
   const exerciseList = Array.isArray(aiExercise) ? aiExercise : (aiExercise ? [aiExercise] : getDailyExercises());
   const firstExercise = exerciseList[0];
   const level = userProfile ? Math.floor(userProfile.xp / 200) + 1 : 1;
+  const calorieData = getCalorieData(sessionHistory, userProfile?.weight, walkHistory, weekOffset);
 
   return (
     <ScrollView style={s.scrollRoot} contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
@@ -711,13 +772,13 @@ function HomeScreen({ onStart, aiExercise, aiLoading, calorieData, onLogout, use
         </View>
       </TouchableOpacity>
 
-      {aiExercise && (
-        <View style={s.aiBadge}>
-          <Text style={s.aiBadgeText}>Personalised by Llama AI based on your progress</Text>
-        </View>
-      )}
-
-      <CalorieChart title="Calories Burned" data={calorieData} />
+      <CalorieChart
+        title="Calories Burned"
+        data={calorieData}
+        weekOffset={weekOffset}
+        onPrevWeek={() => setWeekOffset((prev) => prev + 1)}
+        onNextWeek={() => setWeekOffset((prev) => Math.max(prev - 1, 0))}
+      />
     </ScrollView>
   );
 }
@@ -725,19 +786,30 @@ function HomeScreen({ onStart, aiExercise, aiLoading, calorieData, onLogout, use
 // ══════════════════════════════════════════
 //  PROGRESS SCREEN
 // ══════════════════════════════════════════
-function ProgressScreen({ sessionHistory, calorieData, userProfile, walkHistory }) {
+function ProgressScreen({ sessionHistory, userProfile, walkHistory }) {
+  // Progress/analytics screen.
+  // It transforms raw session and walking history into summary stats, calendar highlights,
+  // recent workouts, and cumulative activity views.
   const now = new Date();
+  const [weekOffset, setWeekOffset] = useState(0);
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
   const today = now.getDate();
   const isCurrentMonth = year === now.getFullYear() && month === now.getMonth();
 
   const days = getCalendarDays(year, month);
-  const completedDays = sessionHistory
-    .filter((s) => s.completed)
-    .map((s) => new Date(s.date))
-    .filter((d) => d.getFullYear() === year && d.getMonth() === month)
-    .map((d) => d.getDate());
+  const completedDays = new Set([
+    ...sessionHistory
+      .filter((s) => s.completed)
+      .map((s) => new Date(s.date))
+      .filter((d) => d.getFullYear() === year && d.getMonth() === month)
+      .map((d) => d.getDate()),
+    ...(walkHistory || [])
+      .filter((walk) => walk.completed)
+      .map((walk) => new Date(walk.date))
+      .filter((d) => d.getFullYear() === year && d.getMonth() === month)
+      .map((d) => d.getDate()),
+  ]);
 
   const prevMonth = () => {
     if (month === 0) { setMonth(11); setYear(year - 1); } else setMonth(month - 1);
@@ -752,6 +824,7 @@ function ProgressScreen({ sessionHistory, calorieData, userProfile, walkHistory 
   const completionRate = totalSessions > 0 ? Math.round((completedSessions / totalSessions) * 100) : 0;
   const level = userProfile ? Math.floor(userProfile.xp / 200) + 1 : 1;
   const recentSessions = groupWorkoutSessions(sessionHistory);
+  const calorieData = getCalorieData(sessionHistory, userProfile?.weight, walkHistory, weekOffset);
 
   const statCards = [
     { label: 'Sessions', value: totalSessions },
@@ -800,7 +873,7 @@ function ProgressScreen({ sessionHistory, calorieData, userProfile, walkHistory 
         <View style={s.calGrid}>
           {days.map((day, i) => {
             const isToday = isCurrentMonth && day === today;
-            const isCompleted = day && completedDays.includes(day);
+            const isCompleted = day && completedDays.has(day);
             return (
               <View key={i} style={s.calCell}>
                 {day ? (
@@ -824,7 +897,13 @@ function ProgressScreen({ sessionHistory, calorieData, userProfile, walkHistory 
         </View>
       </View>
 
-      <CalorieChart title="Calorie Loss Overview" data={calorieData} />
+      <CalorieChart
+        title="Calorie Loss Overview"
+        data={calorieData}
+        weekOffset={weekOffset}
+        onPrevWeek={() => setWeekOffset((prev) => prev + 1)}
+        onNextWeek={() => setWeekOffset((prev) => Math.max(prev - 1, 0))}
+      />
 
       {/* Recent sessions */}
       {recentSessions.length > 0 && (
@@ -899,6 +978,9 @@ function ProgressScreen({ sessionHistory, calorieData, userProfile, walkHistory 
 //  ORACLE CHATBOT SCREEN
 // ══════════════════════════════════════════
 function OracleScreen({ sessionHistory, userProfile }) {
+  // Chat surface for the in-app AI coach.
+  // Messages live locally in this component while session history and profile
+  // are injected into the prompt to keep replies personalised.
   const [messages, setMessages] = useState([
     {
       role: "assistant",
@@ -1050,6 +1132,8 @@ ${historyContext}`;
 //  ANIMATED TIMER
 // ══════════════════════════════════════════
 function TimerDisplay({ duration, onFinish }) {
+  // Countdown UI used for timer-based exercises.
+  // It runs the timer animation and signals the parent once the duration reaches zero.
   const [secondsLeft, setSecondsLeft] = useState(duration);
   const progress = useRef(new Animated.Value(0)).current;
 
@@ -1100,6 +1184,8 @@ function TimerDisplay({ duration, onFinish }) {
 //  REP COUNTER
 // ══════════════════════════════════════════
 function RepCounter({ target, onFinish }) {
+  // Simple confirmation control for rep-based exercises.
+  // The user completes the reps physically, then taps to confirm completion.
   const scale = useRef(new Animated.Value(1)).current;
 
   const handlePress = () => {
@@ -1128,6 +1214,9 @@ function RepCounter({ target, onFinish }) {
 //  EXERCISE SCREEN
 // ══════════════════════════════════════════
 function ExerciseScreen({ exercises, onComplete, onFail }) {
+  // Active workout runner for a multi-exercise session.
+  // It owns the current exercise index, rest-state transitions, exit handling,
+  // and the list of exercises already completed in this run.
   const [currentIndex, setCurrentIndex] = useState(0);
   const [phase, setPhase] = useState('exercise'); // 'exercise' | 'rest' | 'complete'
   const [restCountdown, setRestCountdown] = useState(15);
@@ -1291,6 +1380,7 @@ function ExerciseScreen({ exercises, onComplete, onFail }) {
 //  FAILED SCREEN
 // ══════════════════════════════════════════
 function FailedScreen({ onReturn }) {
+  // Lightweight fallback screen shown after a failed or abandoned workout.
   return (
     <SafeAreaView style={s.root}>
       <View style={s.failContainer}>
@@ -1315,6 +1405,9 @@ function FailedScreen({ onReturn }) {
 //  WALK SCREEN
 // ══════════════════════════════════════════
 function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProfile }) {
+  // Outdoor walking mode.
+  // It monitors GPS position, compares the current location with the generated destination,
+  // and records the walk when the target distance/objective is achieved.
   const [tracking, setTracking] = useState(false);
   const [coords, setCoords] = useState([]);
   const [distanceM, setDistanceM] = useState(0);
@@ -1326,6 +1419,7 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
   const [currentLocation, setCurrentLocation] = useState(null);
   const [destination, setDestination] = useState(null);
   const [achieved, setAchieved] = useState(false);
+  const [remainingM, setRemainingM] = useState(null);
 
   const locationSub = useRef(null);
   const timerRef = useRef(null);
@@ -1335,6 +1429,7 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
   const elapsedRef = useRef(0);
   const destinationRef = useRef(null);
   const achievedRef = useRef(false);
+  const finalizingRef = useRef(false);
 
   const WALK_STATE_KEY = '@rpgfit:activeWalk';
 
@@ -1346,6 +1441,7 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
         elapsedS: elapsedRef.current,
         destination: destinationRef.current,
         achieved: achievedRef.current,
+        remainingM,
         lastCoord: lastCoordRef.current,
         walkObjective,
       }));
@@ -1380,12 +1476,17 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
             setDestination(saved.destination);
             setAchieved(saved.achieved);
             setTracking(true);
+            setCurrentLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+            if (saved.destination) {
+              setRemainingM(haversineDistance({ latitude: loc.coords.latitude, longitude: loc.coords.longitude }, saved.destination));
+            }
 
             // Resume GPS tracking
             const sub = await Location.watchPositionAsync(
               { accuracy: Location.Accuracy.High, distanceInterval: 5, timeInterval: 3000 },
               (l) => {
                 const newCoord = { latitude: l.coords.latitude, longitude: l.coords.longitude };
+                setCurrentLocation(newCoord);
                 if (lastCoordRef.current) {
                   const delta = haversineDistance(lastCoordRef.current, newCoord);
                   if (delta > 1) {
@@ -1396,7 +1497,12 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
                   }
                   if (destinationRef.current && !achievedRef.current) {
                     const distToDest = haversineDistance(newCoord, destinationRef.current);
-                    if (distToDest <= 30) { achievedRef.current = true; setAchieved(true); }
+                    setRemainingM(distToDest);
+                    if (distToDest <= 30 && !finalizingRef.current) {
+                      achievedRef.current = true;
+                      setAchieved(true);
+                      stopWalk(true);
+                    }
                   }
                 }
               }
@@ -1432,7 +1538,9 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
     setDistanceM(0);
     setElapsedS(0);
     setAchieved(false);
+    setRemainingM(walkObjective?.type === 'distance' ? walkObjective.value : null);
     achievedRef.current = false;
+    finalizingRef.current = false;
     destinationRef.current = null;
     setTracking(true);
 
@@ -1450,6 +1558,7 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
       { accuracy: Location.Accuracy.High, distanceInterval: 5, timeInterval: 3000 },
       (loc) => {
         const newCoord = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+        setCurrentLocation(newCoord);
         if (lastCoordRef.current) {
           const delta = haversineDistance(lastCoordRef.current, newCoord);
           if (delta > 1) {
@@ -1461,9 +1570,11 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
           // Check if user reached the destination (within 30m) using refs
           if (destinationRef.current && !achievedRef.current) {
             const distToDest = haversineDistance(newCoord, destinationRef.current);
-            if (distToDest <= 30) {
+            setRemainingM(distToDest);
+            if (distToDest <= 30 && !finalizingRef.current) {
               achievedRef.current = true;
               setAchieved(true);
+              stopWalk(true);
             }
           }
         }
@@ -1480,7 +1591,9 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
     saveStateRef.current = setInterval(saveWalkState, 5000);
   };
 
-  const stopWalk = async () => {
+  const stopWalk = async (forceComplete = false) => {
+    if (finalizingRef.current) return;
+    finalizingRef.current = true;
     locationSub.current?.remove();
     clearInterval(timerRef.current);
     clearInterval(saveStateRef.current);
@@ -1490,11 +1603,12 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
 
     const isComplete = walkObjective
       ? walkObjective.type === 'distance'
-        ? distanceRef.current >= walkObjective.value
+        ? forceComplete || achievedRef.current
         : elapsedRef.current >= walkObjective.value
       : false;
     const xpEarned = isComplete ? 50 + Math.floor(distanceRef.current / 10) : 0;
 
+    let savedEntry = null;
     if (user && walkObjective) {
       const entry = {
         user_id: user.id,
@@ -1508,12 +1622,21 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
         completed: isComplete,
         route: coords,
       };
-      await supabase.from('walk_sessions').insert(entry);
+      const { data } = await supabase.from('walk_sessions').insert(entry).select().single();
+      savedEntry = data ?? entry;
     }
 
     setSaving(false);
-    setWalkResult({ isComplete, xpEarned, distanceM: distanceRef.current, elapsedS: elapsedRef.current });
+    setWalkResult({
+      isComplete,
+      xpEarned,
+      distanceM: distanceRef.current,
+      elapsedS: elapsedRef.current,
+      remainingM: forceComplete ? 0 : remainingM,
+      savedEntry,
+    });
     setWalkDone(true);
+    finalizingRef.current = false;
   };
 
   const formatDist = (m) => m >= 1000 ? `${(m / 1000).toFixed(2)}km` : `${Math.round(m)}m`;
@@ -1521,7 +1644,11 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
 
   const progress = walkObjective && !walkLoading
     ? Math.min(
-        walkObjective.type === 'distance' ? distanceM / walkObjective.value : elapsedS / walkObjective.value,
+        walkObjective.type === 'distance'
+          ? achieved
+            ? 1
+            : Math.max(0, 1 - ((remainingM ?? walkObjective.value) / walkObjective.value))
+          : elapsedS / walkObjective.value,
         1
       )
     : 0;
@@ -1578,7 +1705,7 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
         <View style={{ backgroundColor: '#FFD700', padding: 16, alignItems: 'center', marginBottom: 16 }}>
           <Text style={{ fontSize: 32 }}>🏆</Text>
           <Text style={{ color: '#0A0A0A', fontWeight: '800', fontSize: 16, letterSpacing: 1, marginTop: 4 }}>DESTINATION REACHED!</Text>
-          <Text style={{ color: '#0A0A0A', fontSize: 12, marginTop: 2 }}>Stop the walk below to claim your XP</Text>
+          <Text style={{ color: '#0A0A0A', fontSize: 12, marginTop: 2 }}>Reach the destination marker to complete the quest</Text>
         </View>
       )}
 
@@ -1633,6 +1760,7 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
 //  WEAPON BADGE (current weapon display)
 // ══════════════════════════════════════════
 function WeaponBadge({ level = 1, equippedWeaponId, onPress }) {
+  // Compact progression indicator that shows the best unlocked or equipped weapon.
   const highestUnlocked = [...WEAPONS].reverse().find(w => level >= w.unlockLevel) || WEAPONS[0];
   const equipped = WEAPONS.find(w => w.id === equippedWeaponId && level >= w.unlockLevel) || highestUnlocked;
   const next = WEAPONS.find(w => w.unlockLevel > level);
@@ -1652,6 +1780,7 @@ function WeaponBadge({ level = 1, equippedWeaponId, onPress }) {
 //  WEAPON BADGES MODAL (gallery)
 // ══════════════════════════════════════════
 function WeaponBadgesModal({ visible, onClose, userProfile, onEquip }) {
+  // Full weapon progression gallery that doubles as the cosmetic equip screen.
   const level = userProfile ? Math.floor(userProfile.xp / 200) + 1 : 1;
   const equippedId = userProfile?.equipped_cosmetics?.weapon;
   const highestUnlocked = [...WEAPONS].reverse().find(w => level >= w.unlockLevel) || WEAPONS[0];
@@ -1716,6 +1845,7 @@ function WeaponBadgesModal({ visible, onClose, userProfile, onEquip }) {
 //  LEVEL UP MODAL
 // ══════════════════════════════════════════
 function LevelUpModal({ visible, newLevel, unlocks, onClaim }) {
+  // Reward modal shown when the user's XP crosses a level boundary.
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClaim}>
       <View style={s.modalOverlay}>
@@ -1750,6 +1880,8 @@ function LevelUpModal({ visible, newLevel, unlocks, onClaim }) {
 //  PROFILE SCREEN
 // ══════════════════════════════════════════
 function ProfileScreen({ userProfile, sessionHistory, onSignOut, onUpdateProfile, onOpenCosmetics }) {
+  // Account/profile hub combining editable personal info with XP, streak,
+  // session totals, and access to cosmetic progression.
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(userProfile?.display_name || '');
   const [showEditModal, setShowEditModal] = useState(false);
@@ -1940,6 +2072,9 @@ function ProfileScreen({ userProfile, sessionHistory, onSignOut, onUpdateProfile
 //  APP ROOT
 // ══════════════════════════════════════════
 export default function App() {
+  // Root app controller.
+  // This is the main state owner for auth, profile, workouts, AI content,
+  // navigation, and modal flow across the whole application.
   const [screen, setScreen] = useState('home');
   const [exercises, setExercises] = useState(null);
   const activeTab = screen === 'activity' ? 'activity' : screen === 'oracle' ? 'oracle' : screen === 'map' ? 'map' : screen === 'profile' ? 'profile' : 'home';
@@ -1971,6 +2106,9 @@ export default function App() {
 
   // ── Listen for auth changes + load data on login ──
   useEffect(() => {
+    // Handles auth bootstrapping and recovery deep links.
+    // On launch and on future auth events, it keeps local session state aligned
+    // with Supabase and the current URL/deep-link payload.
     // Handle a deep-link URL (Android: rpgfit://  |  Web: current page URL with token)
     const handleAuthUrl = async (url) => {
       if (!url) return;
@@ -2081,14 +2219,14 @@ export default function App() {
     setOnboardingLoading(false);
   };
 
-  const calorieData = getCalorieData(sessionHistory, userProfile?.weight, walkHistory);
-
   useEffect(() => {
     if (screen === 'home' && !aiExercise) fetchAIExercise();
     if (screen === 'map' && !walkObjective) fetchWalkObjective();
   }, [screen]);
 
   const fetchAIExercise = async () => {
+    // Loads the daily workout plan for the home screen.
+    // Recent session outcomes are converted into difficulty hints before the AI call.
     setAiLoading(true);
     const difficultyModifiers = computeExerciseDifficulty(sessionHistory);
     const result = await getAIExercise(sessionHistory, userProfile, difficultyModifiers);
@@ -2097,6 +2235,7 @@ export default function App() {
   };
 
   const fetchWalkObjective = async () => {
+    // Loads the current AI-generated walking objective when the map screen is opened.
     setWalkLoading(true);
     const result = await getAIWalkObjective(userProfile);
     setWalkObjective(result);
@@ -2104,12 +2243,15 @@ export default function App() {
   };
 
   const startExercise = () => {
+    // Starts a workout using the AI plan if available, otherwise the static fallback list.
     const exList = aiExercise || getDailyExercises();
     setExercises(Array.isArray(exList) ? exList : [exList]);
     setScreen('exercise');
   };
 
   const handleComplete = async (completedList) => {
+    // Persists successful exercises, updates XP/streak/profile data,
+    // and triggers weapon/level-up rewards when thresholds are crossed.
     if (completedList && completedList.length > 0 && user) {
       const todayStr = new Date().toISOString().split("T")[0];
       let totalXP = 0;
@@ -2138,6 +2280,8 @@ export default function App() {
   };
 
   const handleFail = async (failedExerciseName, completedBeforeFail = []) => {
+    // Persists partial progress plus the failed exercise so analytics and
+    // difficulty adjustment can reflect both completions and struggles.
     if (user) {
       const todayStr = new Date().toISOString().split("T")[0];
       // Save all exercises completed before failing
@@ -2161,6 +2305,7 @@ export default function App() {
   };
 
   const handleUpdateProfile = async (updates) => {
+    // Saves edited profile fields back to Supabase and refreshes local state.
     const { data } = await supabase.from('profiles').update(updates).eq('id', user.id).select().single();
     if (data) setUserProfile(data);
   };
@@ -2176,6 +2321,9 @@ export default function App() {
   };
 
   const handleWalkComplete = (result) => {
+    if (result.savedEntry) {
+      setWalkHistory((prev) => [result.savedEntry, ...prev]);
+    }
     if (result.xpEarned > 0 && userProfile) {
       const todayStr = new Date().toISOString().split("T")[0];
       const updates = computeUpdatedProfile(userProfile, result.xpEarned, todayStr);
@@ -2302,13 +2450,14 @@ export default function App() {
           onStart={startExercise}
           aiExercise={aiExercise}
           aiLoading={aiLoading}
-          calorieData={calorieData}
+          sessionHistory={sessionHistory}
+          walkHistory={walkHistory}
           onLogout={handleLogout}
           userProfile={userProfile}
         />
       )}
       {screen === 'activity' && (
-        <ProgressScreen sessionHistory={sessionHistory} calorieData={calorieData} userProfile={userProfile} walkHistory={walkHistory} />
+        <ProgressScreen sessionHistory={sessionHistory} userProfile={userProfile} walkHistory={walkHistory} />
       )}
       {screen === 'oracle' && <OracleScreen sessionHistory={sessionHistory} userProfile={userProfile} />}
       {screen === 'map' && (
@@ -2779,10 +2928,53 @@ const s = StyleSheet.create({
     marginBottom: 2,
     letterSpacing: 1,
   },
+  chartHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 18,
+  },
+  chartHeaderText: {
+    flex: 1,
+    paddingRight: 0,
+  },
+  chartBodyRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 12,
+  },
+  chartSideBtn: {
+    width: 52,
+    height: 160,
+    borderWidth: 2,
+    borderColor: "#FFD700",
+    backgroundColor: "#171300",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#FFD700",
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 3,
+  },
+  chartNavBtnDisabled: {
+    borderColor: "#555555",
+    backgroundColor: "#101010",
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  chartNavText: {
+    color: "#FFD700",
+    fontSize: 24,
+    fontWeight: "900",
+    lineHeight: 24,
+  },
+  chartNavTextDisabled: {
+    color: "#555555",
+  },
   chartSubtitle: {
     fontSize: 11,
     color: "#666666",
-    marginBottom: 18,
     letterSpacing: 1,
   },
   chartArea: {
@@ -2790,6 +2982,7 @@ const s = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "flex-end",
     height: 160,
+    flex: 1,
   },
   chartCol: {
     alignItems: "center",
@@ -2891,9 +3084,9 @@ const s = StyleSheet.create({
     alignItems: "center",
   },
   calDayText: {
-    fontSize: 13,
+    fontSize: 15,
     color: "#FFFFFF",
-    fontWeight: "600",
+    fontWeight: "800",
   },
   calDayToday: {
     backgroundColor: "#FFD700",
@@ -2903,9 +3096,9 @@ const s = StyleSheet.create({
     borderColor: "#FFFFFF",
   },
   calDayTextToday: {
-    color: "#000000",
+    color: "#111111",
     fontWeight: "900",
-    fontSize: 16,
+    fontSize: 18,
   },
   calDayCompleted: {
     backgroundColor: "#1A1A00",
@@ -2914,7 +3107,8 @@ const s = StyleSheet.create({
   },
   calDayTextCompleted: {
     color: "#FFD700",
-    fontWeight: "800",
+    fontWeight: "900",
+    fontSize: 16,
   },
   calLegend: {
     flexDirection: "row",

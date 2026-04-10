@@ -10,6 +10,8 @@ import CalorieChart from "../components/CalorieChart";
 import s from "../styles/styles";
 
 export default function ActivityScreen({ sessionHistory }) {
+  // Progress screen for the modular UI version.
+  // It combines the calendar helpers with the calorie chart to summarise recent activity.
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());

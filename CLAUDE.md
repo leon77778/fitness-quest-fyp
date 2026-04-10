@@ -27,6 +27,7 @@ called "The Oracle". The UX theme is dark/gold RPG pixel-art.
 npx expo start          # Start dev server (scan QR with Expo Go)
 npx expo run:android    # Build and run on Android emulator/device
 npx expo run:ios        # Build and run on iOS simulator
+eas build --platform android --profile preview   # Build APK via EAS (always use --profile preview)
 ```
 
 ---
@@ -102,11 +103,16 @@ Persisted under AsyncStorage key `@rpgfit:sessionHistory`.
 ## AI Integration
 - **Service:** Groq (`https://api.groq.com/openai/v1/chat/completions`)
 - **Model:** `llama-3.3-70b-versatile`
-- **Key location:** `src/config.js` (gitignored) — import from there, never hardcode
-- **Exercise generation:** `getAIExercise(sessionHistory, userProfile)` in `src/utils/ai.js`
-  - Adapts difficulty based on history; falls back to `getDailyExercise()` on failure
-- **Oracle chatbot:** `getOracleReply(messages, sessionHistory, userProfile)` in `src/utils/ai.js`
-  - Has RPG "wise mentor" personality; aware of user's exercise history
+- **Key location:** `EXPO_PUBLIC_GROQ_API_KEY` in `.env` (local) and `eas.json` preview env block (builds)
+- **Exercise generation:** `getAIExercise()` in `App.js` — adapts difficulty based on history
+- **Oracle chatbot:** inline in `App.js` OracleScreen — RPG "wise mentor" personality
+
+### ⚠️ EAS API Key Gotcha — READ THIS
+EAS secrets (set via `eas secret:create` or the expo.dev UI) **override** `eas.json` env variables for the same key name. If the Oracle stops working in the APK but works in Expo Go:
+1. Run `eas env:list preview --scope project` to check for a secret overriding the key
+2. If `EXPO_PUBLIC_GROQ_API_KEY` appears, delete it: `eas env:delete preview --variable-name EXPO_PUBLIC_GROQ_API_KEY --scope project`
+3. The correct key lives only in `eas.json` — do not create EAS secrets for it
+4. Also check console.groq.com that the key is not revoked
 
 ---
 

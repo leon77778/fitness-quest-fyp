@@ -14,6 +14,9 @@ import RepCounter from "../components/RepCounter";
 import s from "../styles/styles";
 
 export default function ExerciseScreen({ exercise, onComplete, onFail }) {
+  // Runs a single exercise from start to finish.
+  // It swaps between instructions, active exercise controls, completion state,
+  // and an abandonment modal when the user tries to leave early.
   const [finished, setFinished] = useState(false);
   const [showExitModal, setShowExitModal] = useState(false);
 

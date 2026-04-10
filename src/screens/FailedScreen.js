@@ -2,6 +2,7 @@ import { SafeAreaView, View, Text, TouchableOpacity } from "react-native";
 import s from "../styles/styles";
 
 export default function FailedScreen({ onReturn }) {
+  // Simple failure/recovery screen shown after an abandoned session.
   return (
     <SafeAreaView style={s.root}>
       <View style={s.failContainer}>

@@ -11,6 +11,9 @@ import { getOracleReply } from "../utils/ai";
 import s from "../styles/styles";
 
 export default function OracleScreen({ sessionHistory, userProfile }) {
+  // Chat interface for the Oracle assistant.
+  // It keeps the local message thread, sends user prompts to the AI helper,
+  // and auto-scrolls as new messages arrive.
   const [messages, setMessages] = useState([
     {
       role: "assistant",
