@@ -458,17 +458,12 @@ function CalorieChart({ title, data, weekOffset, onPrevWeek, onNextWeek }) {
 // ══════════════════════════════════════════
 //  AUTH SCREEN (login / sign up)
 // ══════════════════════════════════════════
-function LoginScreen({ mode, onToggleMode, onLogin, onSignup, onForgotPassword, onSetNewPassword, loading, error, verificationSent, onBackToLogin, passwordResetSent }) {
-  // Consolidated authentication screen.
-  // Depending on `mode`, it handles sign-in, sign-up, password recovery,
-  // and password reset after a recovery deep link is opened.
+function LoginScreen({ mode, onToggleMode, onLogin, onSignup, loading, error, verificationSent, onBackToLogin }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
 
   const handleSubmit = () => {
-    if (mode === 'reset') { if (email.trim()) onForgotPassword(email.trim()); return; }
-    if (mode === 'newPassword') { if (password.trim()) onSetNewPassword(password.trim()); return; }
     if (!email.trim() || !password.trim()) return;
     if (mode === 'login') onLogin(email.trim(), password);
     else onSignup(email.trim(), password);
@@ -493,25 +488,6 @@ function LoginScreen({ mode, onToggleMode, onLogin, onSignup, onForgotPassword, 
     );
   }
 
-  // ── Password reset email sent ──
-  if (passwordResetSent) {
-    return (
-      <SafeAreaView style={s.root}>
-        <StatusBar barStyle="light-content" backgroundColor="#0A0A0A" />
-        <View style={s.verifyContainer}>
-          <Text style={s.verifyEmoji}>🔑</Text>
-          <Text style={s.verifyTitle}>CHECK YOUR EMAIL</Text>
-          <Text style={s.verifyBody}>
-            We sent a password reset link to your inbox. Click it to set a new password, then come back to log in.
-          </Text>
-          <TouchableOpacity style={s.primaryBtn} onPress={onBackToLogin} activeOpacity={0.85}>
-            <Text style={s.primaryBtnText}>BACK TO LOGIN</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   return (
     <SafeAreaView style={s.root}>
       <StatusBar barStyle="light-content" backgroundColor="#0A0A0A" />
@@ -526,49 +502,41 @@ function LoginScreen({ mode, onToggleMode, onLogin, onSignup, onForgotPassword, 
 
         <View style={s.authCard}>
           <Text style={s.authCardTitle}>
-            {mode === 'login' ? 'ENTER THE REALM' : mode === 'signup' ? 'CREATE YOUR HERO' : mode === 'reset' ? 'RESET PASSWORD' : 'SET NEW PASSWORD'}
+            {mode === 'login' ? 'ENTER THE REALM' : 'CREATE YOUR HERO'}
           </Text>
 
           {error ? <Text style={s.authError}>{error}</Text> : null}
 
-          {mode !== 'newPassword' && (
-            <>
-              <Text style={s.inputLabel}>EMAIL</Text>
-              <TextInput
-                style={s.input}
-                placeholder="adventurer@example.com"
-                placeholderTextColor="#555555"
-                value={email}
-                onChangeText={setEmail}
-                autoCapitalize="none"
-                keyboardType="email-address"
-                autoCorrect={false}
-                editable={!loading}
-              />
-            </>
-          )}
+          <Text style={s.inputLabel}>EMAIL</Text>
+          <TextInput
+            style={s.input}
+            placeholder="adventurer@example.com"
+            placeholderTextColor="#555555"
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            autoCorrect={false}
+            editable={!loading}
+          />
 
-          {(mode !== 'reset') && (
-            <>
-              <Text style={s.inputLabel}>{mode === 'newPassword' ? 'NEW PASSWORD' : 'PASSWORD'}</Text>
-              <View style={s.passwordRow}>
-                <TextInput
-                  style={s.inputPassword}
-                  placeholder="••••••••"
-                  placeholderTextColor="#555555"
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry={!showPass}
-                  onSubmitEditing={handleSubmit}
-                  returnKeyType="go"
-                  editable={!loading}
-                />
-                <TouchableOpacity style={s.eyeBtn} onPress={() => setShowPass(!showPass)}>
-                  <Text style={s.eyeText}>{showPass ? 'HIDE' : 'SHOW'}</Text>
-                </TouchableOpacity>
-              </View>
-            </>
-          )}
+          <Text style={s.inputLabel}>PASSWORD</Text>
+          <View style={s.passwordRow}>
+            <TextInput
+              style={s.inputPassword}
+              placeholder="••••••••"
+              placeholderTextColor="#555555"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPass}
+              onSubmitEditing={handleSubmit}
+              returnKeyType="go"
+              editable={!loading}
+            />
+            <TouchableOpacity style={s.eyeBtn} onPress={() => setShowPass(!showPass)}>
+              <Text style={s.eyeText}>{showPass ? 'HIDE' : 'SHOW'}</Text>
+            </TouchableOpacity>
+          </View>
 
           <TouchableOpacity
             style={[s.primaryBtn, loading && { opacity: 0.5 }]}
@@ -579,35 +547,21 @@ function LoginScreen({ mode, onToggleMode, onLogin, onSignup, onForgotPassword, 
             {loading
               ? <ActivityIndicator size="small" color="#0A0A0A" />
               : <Text style={s.primaryBtnText}>
-                  {mode === 'login' ? 'LOGIN' : mode === 'signup' ? 'CREATE ACCOUNT' : mode === 'newPassword' ? 'SAVE NEW PASSWORD' : 'SEND RESET LINK'}
+                  {mode === 'login' ? 'LOGIN' : 'CREATE ACCOUNT'}
                 </Text>
             }
           </TouchableOpacity>
-
-          {mode === 'login' && (
-            <TouchableOpacity style={{ marginTop: 14, alignItems: 'center' }} onPress={() => onToggleMode('reset')} disabled={loading}>
-              <Text style={s.authFooterTextSmall}>FORGOT PASSWORD?</Text>
-            </TouchableOpacity>
-          )}
         </View>
 
         <View style={s.authFooter}>
-          {(mode === 'reset' || mode === 'newPassword') ? (
-            <TouchableOpacity onPress={onBackToLogin} disabled={loading}>
-              <Text style={s.authFooterText}>
-                <Text style={s.authFooterLink}>← Back to Login</Text>
+          <TouchableOpacity onPress={() => onToggleMode(mode === 'login' ? 'signup' : 'login')} disabled={loading}>
+            <Text style={s.authFooterText}>
+              {mode === 'login' ? "No account? " : "Already a hero? "}
+              <Text style={s.authFooterLink}>
+                {mode === 'login' ? 'Sign Up' : 'Log In'}
               </Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity onPress={() => onToggleMode(mode === 'login' ? 'signup' : 'login')} disabled={loading}>
-              <Text style={s.authFooterText}>
-                {mode === 'login' ? "No account? " : "Already a hero? "}
-                <Text style={s.authFooterLink}>
-                  {mode === 'login' ? 'Sign Up' : 'Log In'}
-                </Text>
-              </Text>
-            </TouchableOpacity>
-          )}
+            </Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -2092,8 +2046,6 @@ export default function App() {
   const [authMode, setAuthMode] = useState('login');
   const [authError, setAuthError] = useState('');
   const [verificationSent, setVerificationSent] = useState(false);
-  const [passwordResetSent, setPasswordResetSent] = useState(false);
-  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
 
   // ── Profile & walk state ──
   const [userProfile, setUserProfile] = useState(null);
@@ -2106,38 +2058,6 @@ export default function App() {
 
   // ── Listen for auth changes + load data on login ──
   useEffect(() => {
-    // Handles auth bootstrapping and recovery deep links.
-    // On launch and on future auth events, it keeps local session state aligned
-    // with Supabase and the current URL/deep-link payload.
-    // Handle a deep-link URL (Android: rpgfit://  |  Web: current page URL with token)
-    const handleAuthUrl = async (url) => {
-      if (!url) return;
-      // PKCE flow: Supabase appends ?code=xxx to the redirect URL
-      if (url.includes('code=')) {
-        await supabase.auth.exchangeCodeForSession(url);
-        // onAuthStateChange will fire PASSWORD_RECOVERY automatically
-        return;
-      }
-      // Implicit flow: tokens arrive in the URL fragment (#access_token=...&type=recovery)
-      const fragment = url.split('#')[1] || '';
-      if (!fragment) return;
-      const params = Object.fromEntries(
-        fragment.split('&').filter(Boolean).map(p => {
-          const eq = p.indexOf('=');
-          return [p.slice(0, eq), decodeURIComponent(p.slice(eq + 1))];
-        })
-      );
-      if (params.access_token && params.type === 'recovery') {
-        setIsPasswordRecovery(true);
-        await supabase.auth.setSession({ access_token: params.access_token, refresh_token: params.refresh_token });
-      }
-    };
-
-    // App opened via deep link (Android) or page loaded with token in URL (web)
-    Linking.getInitialURL().then(handleAuthUrl);
-    // Deep link received while app is already running
-    const linkingSub = Linking.addEventListener('url', ({ url }) => handleAuthUrl(url));
-
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       if (session?.user) {
@@ -2148,12 +2068,6 @@ export default function App() {
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        setIsPasswordRecovery(true);
-        setUser(session?.user ?? null);
-        setAuthLoading(false);
-        return;
-      }
       setUser(session?.user ?? null);
       if (session?.user) {
         loadAllData(session.user.id);
@@ -2165,7 +2079,7 @@ export default function App() {
       }
     });
 
-    return () => { subscription.unsubscribe(); linkingSub.remove(); };
+    return () => { subscription.unsubscribe(); };
   }, []);
 
   const loadAllData = async (userId) => {
@@ -2353,15 +2267,6 @@ export default function App() {
     else if (!data.session) { setVerificationSent(true); setAuthLoading(false); }
   };
 
-  const handlePasswordReset = async (email) => {
-    setAuthError('');
-    setAuthLoading(true);
-    const redirectTo = Platform.OS === 'web' && typeof window !== 'undefined' ? window.location.origin : 'rpgfit://';
-    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
-    if (error) { setAuthError(error.message); setAuthLoading(false); }
-    else { setPasswordResetSent(true); setAuthLoading(false); }
-  };
-
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setAiExercise(null);
@@ -2369,15 +2274,7 @@ export default function App() {
     setScreen('home');
   };
 
-  const handleSetNewPassword = async (newPassword) => {
-    setAuthError('');
-    setAuthLoading(true);
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
-    if (error) { setAuthError(error.message); setAuthLoading(false); }
-    else { await supabase.auth.signOut(); setIsPasswordRecovery(false); setAuthLoading(false); resetAuthState(); }
-  };
-
-  const resetAuthState = () => { setVerificationSent(false); setPasswordResetSent(false); setAuthMode('login'); setAuthError(''); };
+  const resetAuthState = () => { setVerificationSent(false); setAuthMode('login'); setAuthError(''); };
 
   // ── Loading splash ──
   if (authLoading) {
@@ -2392,38 +2289,17 @@ export default function App() {
     );
   }
 
-  // ── Password recovery gate ──
-  if (isPasswordRecovery) {
-    return (
-      <LoginScreen
-        mode="newPassword"
-        onToggleMode={() => {}}
-        onLogin={() => {}}
-        onSignup={() => {}}
-        onForgotPassword={() => {}}
-        onSetNewPassword={handleSetNewPassword}
-        loading={authLoading}
-        error={authError}
-        verificationSent={false}
-        passwordResetSent={false}
-        onBackToLogin={() => { supabase.auth.signOut(); setIsPasswordRecovery(false); resetAuthState(); }}
-      />
-    );
-  }
-
   // ── Auth gate ──
   if (!user) {
     return (
       <LoginScreen
         mode={authMode}
-        onToggleMode={(newMode) => { setAuthMode(newMode); setAuthError(''); setVerificationSent(false); setPasswordResetSent(false); }}
+        onToggleMode={(newMode) => { setAuthMode(newMode); setAuthError(''); setVerificationSent(false); }}
         onLogin={handleLogin}
         onSignup={handleSignup}
-        onForgotPassword={handlePasswordReset}
         loading={authLoading}
         error={authError}
         verificationSent={verificationSent}
-        passwordResetSent={passwordResetSent}
         onBackToLogin={resetAuthState}
       />
     );
