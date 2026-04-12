@@ -1,9 +1,32 @@
 import { useState, useEffect, useRef } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "./lib/supabase";
-import * as Linking from "expo-linking";// 
+import * as Linking from "expo-linking";
 import { Video, ResizeMode } from "expo-av";
-import * as Location from "expo-location"; //gps location
+import * as Location from "expo-location";
+import {
+  WALK_COMPLETION_RADIUS_M,
+  buildGoogleMapsDirectionsUrl,
+  buildGoogleMapsViewerUrl,
+  buildWalkSessionEntry,
+  clearActiveWalkState,
+  computeWalkProgress,
+  destinationPoint,
+  formatDistance,
+  formatElapsedTime,
+  haversineDistance,
+  loadActiveWalkState,
+  saveActiveWalkState,
+} from "./src/utils/walk";
+
+/*
+Plain-English file guide:
+1. Imports and static data: external services, built-in exercises, rewards.
+2. Helper functions: calories, calendar, AI workout generation, XP/streak logic.
+3. Screen components: login, onboarding, home, progress, Oracle, exercise flow, walk, profile.
+4. App(): the real entry point. It loads data, controls navigation, and wires all screens together.
+5. Styles: the big StyleSheet at the bottom used by every screen above.
+*/
 
 import {
   SafeAreaView,
@@ -249,7 +272,6 @@ Respond ONLY with valid JSON — an array of exactly 5 exercises, no extra text:
     }
     return null;
   } catch (err) {
-    console.log("AI error:", err);
     return null;
   }
 }
@@ -349,28 +371,6 @@ function computeExerciseDifficulty(sessionHistory) {
     modifiers[name] = { modifier, recentAttempts: total, successRate: Math.round(((total - fails) / total) * 100) };
   }
   return modifiers;
-}
-
-// ── Haversine distance between two GPS coords (metres) ──
-// Calculate destination point given start, distance (metres), and bearing (degrees)
-function destinationPoint(start, distanceM, bearingDeg) {
-  // Generates a destination coordinate from the user's current location, a distance,
-  // and a bearing. The walking feature uses this to create a target point.
-  const R = 6371000;
-  const bearing = bearingDeg * Math.PI / 180;
-  const lat1 = start.latitude * Math.PI / 180;
-  const lon1 = start.longitude * Math.PI / 180;
-  const lat2 = Math.asin(Math.sin(lat1) * Math.cos(distanceM / R) + Math.cos(lat1) * Math.sin(distanceM / R) * Math.cos(bearing));
-  const lon2 = lon1 + Math.atan2(Math.sin(bearing) * Math.sin(distanceM / R) * Math.cos(lat1), Math.cos(distanceM / R) - Math.sin(lat1) * Math.sin(lat2));
-  return { latitude: lat2 * 180 / Math.PI, longitude: lon2 * 180 / Math.PI };
-}
-
-function haversineDistance(a, b) {
-  // Estimates straight-line distance between two GPS coordinates in metres.
-  // This drives the live walking progress display and completion threshold.
-  const x = (b.longitude - a.longitude) * 111320 * Math.cos(a.latitude * Math.PI / 180);
-  const y = (b.latitude - a.latitude) * 110540;
-  return Math.sqrt(x * x + y * y);
 }
 
 // ── Ask AI for a walk objective ──
@@ -524,7 +524,7 @@ function LoginScreen({ mode, onToggleMode, onLogin, onSignup, loading, error, ve
           <View style={s.passwordRow}>
             <TextInput
               style={s.inputPassword}
-              placeholder="••••••••"
+              placeholder="********"
               placeholderTextColor="#555555"
               value={password}
               onChangeText={setPassword}
@@ -721,7 +721,7 @@ function HomeScreen({ onStart, aiExercise, aiLoading, sessionHistory, walkHistor
             </Text>
           )}
           <View style={s.sessionStartRow}>
-            <Text style={s.sessionStartText}>{aiLoading ? "Loading..." : "Tap to begin →"}</Text>
+            <Text style={s.sessionStartText}>{aiLoading ? "Loading..." : "Tap to begin >"}</Text>
           </View>
         </View>
       </TouchableOpacity>
@@ -907,14 +907,14 @@ function ProgressScreen({ sessionHistory, userProfile, walkHistory }) {
               return (
                 <View key={i} style={s.recentRow}>
                   <View style={s.recentLeft}>
-                    <Text style={s.recentExercise}>🚶 Walk {walkHistory.length - i}</Text>
+                    <Text style={s.recentExercise}>Walk {walkHistory.length - i}</Text>
                     <Text style={s.recentDate}>{walk.date}</Text>
                     <Text style={s.recentDetails}>{walk.objective}</Text>
-                    <Text style={s.recentSummary}>{distStr} · {mins}:{secs} · {Math.round(estimateWalkCalories(walk, userProfile?.weight))} kcal</Text>
+                    <Text style={s.recentSummary}>{distStr} | {mins}:{secs} | {Math.round(estimateWalkCalories(walk, userProfile?.weight))} kcal</Text>
                   </View>
                   <View style={s.recentRight}>
                     <Text style={walk.completed ? s.recentBadgeWin : s.recentBadgeFail}>
-                      {walk.completed ? '✓ Done' : '✗ Incomplete'}
+                      {walk.completed ? 'Done' : 'Incomplete'}
                     </Text>
                     <Text style={s.recentXp}>{walk.xp_earned > 0 ? `+${walk.xp_earned} XP` : '0 XP'}</Text>
                   </View>
@@ -1004,11 +1004,10 @@ ${historyContext}`;
       if (reply) {
         setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
       } else {
-        const errMsg = data.error?.message || data.error?.code || `HTTP ${res.status}`;
-        setMessages((prev) => [...prev, { role: "assistant", content: `Error: ${errMsg}` }]);
+        setMessages((prev) => [...prev, { role: "assistant", content: "The Oracle could not answer that right now. Please try again." }]);
       }
     } catch (err) {
-      setMessages((prev) => [...prev, { role: "assistant", content: `Network error: ${err.message}` }]);
+      setMessages((prev) => [...prev, { role: "assistant", content: "The Oracle is unavailable right now. Check your connection and try again." }]);
     }
     setLoading(false);
   };
@@ -1263,7 +1262,7 @@ function ExerciseScreen({ exercises, onComplete, onFail }) {
             <View style={s.videoPlaceholder}>
               <Text style={s.videoIcon}>🎬</Text>
               <Text style={s.videoText}>Exercise Demo</Text>
-              <Text style={s.videoSubtext}>Video coming soon</Text>
+              <Text style={s.videoSubtext}>Demo unavailable in this build</Text>
             </View>
           )}
 
@@ -1371,7 +1370,6 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
   const [permError, setPermError] = useState('');
   const [saving, setSaving] = useState(false);
   const [currentLocation, setCurrentLocation] = useState(null);
-  const [destination, setDestination] = useState(null);
   const [achieved, setAchieved] = useState(false);
   const [remainingM, setRemainingM] = useState(null);
 
@@ -1385,25 +1383,17 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
   const achievedRef = useRef(false);
   const finalizingRef = useRef(false);
 
-  const WALK_STATE_KEY = '@rpgfit:activeWalk';
-
-  const saveWalkState = async () => {
-    try {
-      await AsyncStorage.setItem(WALK_STATE_KEY, JSON.stringify({
-        tracking: true,
-        distanceM: distanceRef.current,
-        elapsedS: elapsedRef.current,
-        destination: destinationRef.current,
-        achieved: achievedRef.current,
-        remainingM,
-        lastCoord: lastCoordRef.current,
-        walkObjective,
-      }));
-    } catch (_) {}
-  };
-
-  const clearWalkState = async () => {
-    try { await AsyncStorage.removeItem(WALK_STATE_KEY); } catch (_) {}
+  const persistWalkState = async () => {
+    await saveActiveWalkState({
+      tracking: true,
+      distanceM: distanceRef.current,
+      elapsedS: elapsedRef.current,
+      destination: destinationRef.current,
+      achieved: achievedRef.current,
+      remainingM,
+      lastCoord: lastCoordRef.current,
+      walkObjective,
+    });
   };
 
   // Get current location + restore any in-progress walk on mount
@@ -1416,10 +1406,8 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
 
       // Restore walk state if app was killed mid-walk
       try {
-        const raw = await AsyncStorage.getItem(WALK_STATE_KEY);
-        if (raw) {
-          const saved = JSON.parse(raw);
-          if (saved.tracking) {
+        const saved = await loadActiveWalkState();
+        if (saved?.tracking) {
             distanceRef.current = saved.distanceM;
             elapsedRef.current = saved.elapsedS;
             destinationRef.current = saved.destination;
@@ -1427,7 +1415,6 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
             lastCoordRef.current = saved.lastCoord;
             setDistanceM(saved.distanceM);
             setElapsedS(saved.elapsedS);
-            setDestination(saved.destination);
             setAchieved(saved.achieved);
             setTracking(true);
             setCurrentLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
@@ -1452,7 +1439,7 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
                   if (destinationRef.current && !achievedRef.current) {
                     const distToDest = haversineDistance(newCoord, destinationRef.current);
                     setRemainingM(distToDest);
-                    if (distToDest <= 30 && !finalizingRef.current) {
+                    if (distToDest <= WALK_COMPLETION_RADIUS_M && !finalizingRef.current) {
                       achievedRef.current = true;
                       setAchieved(true);
                       stopWalk(true);
@@ -1466,8 +1453,7 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
               elapsedRef.current += 1;
               setElapsedS(elapsedRef.current);
             }, 1000);
-            saveStateRef.current = setInterval(saveWalkState, 5000);
-          }
+            saveStateRef.current = setInterval(persistWalkState, 5000);
         }
       } catch (_) {}
     })();
@@ -1502,9 +1488,8 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
     if (walkObjective?.type === 'distance') {
       const bearing = Math.random() * 360;
       const dest = destinationPoint(startCoord, walkObjective.value, bearing);
-      setDestination(dest);
       destinationRef.current = dest;
-      const url = `https://www.google.com/maps/dir/?api=1&origin=${startCoord.latitude},${startCoord.longitude}&destination=${dest.latitude},${dest.longitude}&travelmode=walking`;
+      const url = buildGoogleMapsDirectionsUrl(startCoord, dest);
       Linking.openURL(url);
     }
 
@@ -1525,7 +1510,7 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
           if (destinationRef.current && !achievedRef.current) {
             const distToDest = haversineDistance(newCoord, destinationRef.current);
             setRemainingM(distToDest);
-            if (distToDest <= 30 && !finalizingRef.current) {
+            if (distToDest <= WALK_COMPLETION_RADIUS_M && !finalizingRef.current) {
               achievedRef.current = true;
               setAchieved(true);
               stopWalk(true);
@@ -1542,7 +1527,7 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
     }, 1000);
 
     // Save walk state every 5 seconds
-    saveStateRef.current = setInterval(saveWalkState, 5000);
+    saveStateRef.current = setInterval(persistWalkState, 5000);
   };
 
   const stopWalk = async (forceComplete = false) => {
@@ -1551,7 +1536,7 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
     locationSub.current?.remove();
     clearInterval(timerRef.current);
     clearInterval(saveStateRef.current);
-    await clearWalkState();
+    await clearActiveWalkState();
     setTracking(false);
     setSaving(true);
 
@@ -1564,18 +1549,15 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
 
     let savedEntry = null;
     if (user && walkObjective) {
-      const entry = {
-        user_id: user.id,
-        date: new Date().toISOString().split('T')[0],
-        objective: walkObjective.text,
-        obj_type: walkObjective.type,
-        obj_value: walkObjective.value,
-        distance_m: Math.round(distanceRef.current * 100) / 100,
-        duration_s: elapsedRef.current,
-        xp_earned: xpEarned,
-        completed: isComplete,
-        route: coords,
-      };
+      const entry = buildWalkSessionEntry(
+        user.id,
+        walkObjective,
+        distanceRef.current,
+        elapsedRef.current,
+        xpEarned,
+        isComplete,
+        coords
+      );
       const { data } = await supabase.from('walk_sessions').insert(entry).select().single();
       savedEntry = data ?? entry;
     }
@@ -1593,19 +1575,7 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
     finalizingRef.current = false;
   };
 
-  const formatDist = (m) => m >= 1000 ? `${(m / 1000).toFixed(2)}km` : `${Math.round(m)}m`;
-  const formatTime = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-
-  const progress = walkObjective && !walkLoading
-    ? Math.min(
-        walkObjective.type === 'distance'
-          ? achieved
-            ? 1
-            : Math.max(0, 1 - ((remainingM ?? walkObjective.value) / walkObjective.value))
-          : elapsedS / walkObjective.value,
-        1
-      )
-    : 0;
+  const progress = computeWalkProgress(walkObjective, elapsedS, achieved, remainingM);
 
   if (walkDone && walkResult) {
     return (
@@ -1613,7 +1583,7 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
         <Text style={{ fontSize: 64, marginBottom: 16 }}>{walkResult.isComplete ? '🏆' : '🚶'}</Text>
         <Text style={[s.doneTitle, { marginBottom: 8 }]}>{walkResult.isComplete ? 'Objective Complete!' : 'Walk Ended'}</Text>
         <Text style={s.doneSubtitle}>
-          {formatDist(walkResult.distanceM)} walked · {formatTime(walkResult.elapsedS)}
+          {formatDistance(walkResult.distanceM)} walked | {formatElapsedTime(walkResult.elapsedS)}
           {walkResult.xpEarned > 0 ? `\n+${walkResult.xpEarned} XP earned!` : ''}
         </Text>
         <TouchableOpacity style={[s.doneBtn, { marginTop: 24 }]} onPress={() => { setWalkDone(false); setCoords([]); onWalkComplete(walkResult); }} activeOpacity={0.85}>
@@ -1625,10 +1595,10 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
 
   const openGoogleMaps = () => {
     if (destinationRef.current && currentLocation) {
-      const url = `https://www.google.com/maps/dir/?api=1&origin=${currentLocation.latitude},${currentLocation.longitude}&destination=${destinationRef.current.latitude},${destinationRef.current.longitude}&travelmode=walking`;
+      const url = buildGoogleMapsDirectionsUrl(currentLocation, destinationRef.current);
       Linking.openURL(url);
     } else if (currentLocation) {
-      const url = `https://www.google.com/maps/@${currentLocation.latitude},${currentLocation.longitude},15z`;
+      const url = buildGoogleMapsViewerUrl(currentLocation);
       Linking.openURL(url);
     }
   };
@@ -1637,7 +1607,7 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
     <ScrollView style={s.scrollRoot} contentContainerStyle={[s.scrollContent, { paddingTop: 30 }]}>
       {/* Header */}
       <Text style={s.appTitle}>Walk Quest</Text>
-      <Text style={[s.appSubtitle, { marginBottom: 20 }]}>GPS tracked · XP rewarded</Text>
+      <Text style={[s.appSubtitle, { marginBottom: 20 }]}>GPS tracked | XP rewarded</Text>
 
       {/* Objective card */}
       <View style={s.walkObjCardFull}>
@@ -1659,18 +1629,18 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
         <View style={{ backgroundColor: '#FFD700', padding: 16, alignItems: 'center', marginBottom: 16 }}>
           <Text style={{ fontSize: 32 }}>🏆</Text>
           <Text style={{ color: '#0A0A0A', fontWeight: '800', fontSize: 16, letterSpacing: 1, marginTop: 4 }}>DESTINATION REACHED!</Text>
-          <Text style={{ color: '#0A0A0A', fontSize: 12, marginTop: 2 }}>Reach the destination marker to complete the quest</Text>
+          <Text style={{ color: '#0A0A0A', fontSize: 12, marginTop: 2 }}>The quest completes when you reach the destination</Text>
         </View>
       )}
 
       {/* Stats */}
       <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
         <View style={[s.statCard, { flex: 1, padding: 20 }]}>
-          <Text style={[s.walkHUDValue, { fontSize: 28 }]}>{formatDist(distanceM)}</Text>
+          <Text style={[s.walkHUDValue, { fontSize: 28 }]}>{formatDistance(distanceM)}</Text>
           <Text style={s.walkHUDLabel}>Distance</Text>
         </View>
         <View style={[s.statCard, { flex: 1, padding: 20 }]}>
-          <Text style={[s.walkHUDValue, { fontSize: 28 }]}>{formatTime(elapsedS)}</Text>
+          <Text style={[s.walkHUDValue, { fontSize: 28 }]}>{formatElapsedTime(elapsedS)}</Text>
           <Text style={s.walkHUDLabel}>Time</Text>
         </View>
       </View>
@@ -1682,7 +1652,7 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
           onPress={openGoogleMaps}
           activeOpacity={0.85}
         >
-          <Text style={[s.primaryBtnText, { color: '#FFFFFF' }]}>🗺️ OPEN GOOGLE MAPS</Text>
+          <Text style={[s.primaryBtnText, { color: '#FFFFFF' }]}>OPEN GOOGLE MAPS</Text>
         </TouchableOpacity>
       )}
 
@@ -2029,6 +1999,9 @@ export default function App() {
   // Root app controller.
   // This is the main state owner for auth, profile, workouts, AI content,
   // navigation, and modal flow across the whole application.
+
+  // Navigation state:
+  // decides which main screen is visible in the app right now.
   const [screen, setScreen] = useState('home');
   const [exercises, setExercises] = useState(null);
   const activeTab = screen === 'activity' ? 'activity' : screen === 'oracle' ? 'oracle' : screen === 'map' ? 'map' : screen === 'profile' ? 'profile' : 'home';
@@ -2036,18 +2009,22 @@ export default function App() {
   const [levelUpUnlocks, setLevelUpUnlocks] = useState([]);
   const [showLevelUpModal, setShowLevelUpModal] = useState(false);
 
+  // Workout state:
+  // saved session records plus the AI-generated plan currently shown to the user.
   const [sessionHistory, setSessionHistory] = useState([]);
   const [aiExercise, setAiExercise] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
 
-  // ── Auth state ──
+  // Auth state:
+  // who is logged in, whether auth is still loading, and current auth screen errors.
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [authMode, setAuthMode] = useState('login');
   const [authError, setAuthError] = useState('');
   const [verificationSent, setVerificationSent] = useState(false);
 
-  // ── Profile & walk state ──
+  // Profile and walk state:
+  // user profile, onboarding progress, past walk records, and today's walk quest.
   const [userProfile, setUserProfile] = useState(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingLoading, setOnboardingLoading] = useState(false);
@@ -2083,12 +2060,15 @@ export default function App() {
   }, []);
 
   const loadAllData = async (userId) => {
+    // One place that loads everything the main app needs after login.
     setAuthLoading(true);
     await Promise.all([loadSessions(userId), loadProfile(userId), loadWalks(userId)]);
     setAuthLoading(false);
   };
 
   const loadSessions = async (userId) => {
+    // Pulls workout sessions from Supabase.
+    // If the user has no cloud sessions yet, it tries to migrate any old local sessions first.
     const { data, error } = await supabase
       .from('sessions')
       .select('*')
@@ -2113,17 +2093,21 @@ export default function App() {
   };
 
   const loadProfile = async (userId) => {
+    // Pulls the user's profile row.
+    // If none exists yet, the app sends the user to onboarding.
     const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
     if (data) setUserProfile(data);
     else setShowOnboarding(true);
   };
 
   const loadWalks = async (userId) => {
+    // Pulls completed and incomplete walk quest records for the progress screen.
     const { data } = await supabase.from('walk_sessions').select('*').eq('user_id', userId).order('created_at', { ascending: false });
     if (data) setWalkHistory(data);
   };
 
   const saveProfile = async (profileData) => {
+    // Creates the initial user profile at the end of onboarding.
     setOnboardingLoading(true);
     setOnboardingError('');
     const { data, error } = await supabase.from('profiles').insert({ id: user.id, ...profileData }).select().single();
@@ -2228,6 +2212,7 @@ export default function App() {
   const returnHome = () => setScreen('home');
 
   const handleEquipWeapon = async (weaponId) => {
+    // Saves the currently selected cosmetic weapon to the profile.
     const current = userProfile?.equipped_cosmetics || {};
     const updated = { ...current, weapon: weaponId };
     await supabase.from('profiles').update({ equipped_cosmetics: updated }).eq('id', user.id);
@@ -2235,6 +2220,8 @@ export default function App() {
   };
 
   const handleWalkComplete = (result) => {
+    // Runs after WalkScreen finishes and returns a result object.
+    // This updates local walk history and applies any earned XP to the profile.
     if (result.savedEntry) {
       setWalkHistory((prev) => [result.savedEntry, ...prev]);
     }
@@ -2252,10 +2239,7 @@ export default function App() {
   const handleLogin = async (email, password) => {
     setAuthError('');
     setAuthLoading(true);
-    const isAdminCode = password === 'admin123';
-    const loginEmail = isAdminCode ? process.env.EXPO_PUBLIC_ADMIN_EMAIL : email;
-    const loginPass  = isAdminCode ? process.env.EXPO_PUBLIC_ADMIN_PASS  : password;
-    const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password: loginPass });
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) { setAuthError(error.message); setAuthLoading(false); }
   };
 

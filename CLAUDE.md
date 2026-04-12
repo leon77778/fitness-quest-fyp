@@ -6,7 +6,7 @@ AI-generated exercise quests, track completions on a calendar, and consult an AI
 called "The Oracle". The UX theme is dark/gold RPG pixel-art.
 
 **Platform:** React Native (Expo) — Android primary, iOS supported
-**Status:** Working prototype. Persistent storage, AI personalisation, and modular architecture are implemented.
+**Status:** Working prototype. Persistent storage, AI personalisation, and the current single-file app flow in `App.js` are implemented.
 
 ---
 
@@ -18,7 +18,7 @@ called "The Oracle". The UX theme is dark/gold RPG pixel-art.
 | Navigation | Custom screen state in App.js (no React Navigation library) |
 | AI | Groq API — model `llama-3.3-70b-versatile` |
 | Storage | AsyncStorage (`@react-native-async-storage/async-storage`) |
-| Styling | Single centralised StyleSheet (`src/styles/styles.js`) |
+| Styling | Centralised StyleSheet at the bottom of `App.js` |
 
 ---
 
@@ -67,7 +67,7 @@ fitness-quest-fyp/
 
 ## Architecture Decisions
 - **No React Navigation library** — screen switching is done with a `screen` state string in `App.js`
-- **Single stylesheet** — all styles live in `src/styles/styles.js`, exported as default `s`. Never use inline styles.
+- **Single stylesheet** — active styles currently live at the bottom of `App.js`.
 - **No Redux / Context API** — state is passed as props from `App.js` (sessionHistory, aiExercise, etc.)
 - **AsyncStorage** — session history is the only persisted data. Loaded on mount, saved on every complete/fail.
 - **API key isolation** — `src/config.js` is gitignored. New devs copy `src/config.example.js` → `src/config.js` and add their Groq key.
@@ -138,7 +138,7 @@ Persisted under AsyncStorage key `@rpgfit:sessionHistory`.
 | Activity calendar (real data) | Done |
 | Calorie chart (real data) | Done |
 | User profile (weight/height/age) | Placeholder — `userProfile` is always `null` |
-| Exercise demo video | Placeholder — shows "Video coming soon" |
-| User authentication | Removed — app is fully open/public |
+| Exercise demo video | Placeholder — demo is unavailable in this build |
+| User authentication | Done (Supabase email/password) |
 | XP / levelling system | UI references exist but not implemented |
 | React Native Maps | Imported in package.json but unused |

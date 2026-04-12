@@ -12,9 +12,7 @@
       "distribution": "internal",
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://soemtmcjtuemwomzmraj.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNvZW10bWNqdHVlbXdvbXptcmFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2NzEyODMsImV4cCI6MjA4OTI0NzI4M30._9unhjXVUQYiO8JJzBIl1yK_rewY8YO7ZeOkcYidNmw",
-"EXPO_PUBLIC_ADMIN_EMAIL": "kashemhoque00@gmail.com",
-        "EXPO_PUBLIC_ADMIN_PASS": "123456789."
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNvZW10bWNqdHVlbXdvbXptcmFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2NzEyODMsImV4cCI6MjA4OTI0NzI4M30._9unhjXVUQYiO8JJzBIl1yK_rewY8YO7ZeOkcYidNmw"
       }
     },
     "production": {

@@ -24,6 +24,7 @@ src/config.js
 
 # Misc
 .DS_Store
+.idea/
 *.log
 npm-debug.*
 yarn-debug.*
