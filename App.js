@@ -772,9 +772,9 @@ function ProgressScreen({ sessionHistory, userProfile, walkHistory }) {
     if (month === 11) { setMonth(0); setYear(year + 1); } else setMonth(month + 1);
   };
 
-  // Stats
-  const totalSessions = sessionHistory.length;
-  const completedSessions = sessionHistory.filter((s) => s.completed).length;
+  // Stats (walks count as sessions)
+  const totalSessions = sessionHistory.length + (walkHistory?.length ?? 0);
+  const completedSessions = sessionHistory.filter((s) => s.completed).length + (walkHistory?.filter((w) => w.completed).length ?? 0);
   const completionRate = totalSessions > 0 ? Math.round((completedSessions / totalSessions) * 100) : 0;
   const level = userProfile ? Math.floor(userProfile.xp / 200) + 1 : 1;
   const recentSessions = groupWorkoutSessions(sessionHistory);
@@ -1833,7 +1833,7 @@ function LevelUpModal({ visible, newLevel, unlocks, onClaim }) {
 // ══════════════════════════════════════════
 //  PROFILE SCREEN
 // ══════════════════════════════════════════
-function ProfileScreen({ userProfile, sessionHistory, onSignOut, onUpdateProfile, onOpenCosmetics }) {
+function ProfileScreen({ userProfile, sessionHistory, walkHistory, onSignOut, onUpdateProfile, onOpenCosmetics }) {
   // Account/profile hub combining editable personal info with XP, streak,
   // session totals, and access to cosmetic progression.
   const [editingName, setEditingName] = useState(false);
@@ -1850,8 +1850,8 @@ function ProfileScreen({ userProfile, sessionHistory, onSignOut, onUpdateProfile
   const level = Math.floor(userProfile.xp / 200) + 1;
   const xpIntoLevel = userProfile.xp % 200;
   const xpProgress = xpIntoLevel / 200;
-  const totalSessions = sessionHistory.length;
-  const completedSessions = sessionHistory.filter(s => s.completed).length;
+  const totalSessions = sessionHistory.length + (walkHistory?.length ?? 0);
+  const completedSessions = sessionHistory.filter(s => s.completed).length + (walkHistory?.filter(w => w.completed).length ?? 0);
   const completionRate = totalSessions > 0 ? Math.round((completedSessions / totalSessions) * 100) : 0;
 
   const saveName = () => {
@@ -2343,6 +2343,7 @@ export default function App() {
         <ProfileScreen
           userProfile={userProfile}
           sessionHistory={sessionHistory}
+          walkHistory={walkHistory}
           onSignOut={handleLogout}
           onUpdateProfile={handleUpdateProfile}
           onOpenCosmetics={() => setShowWeaponsModal(true)}
