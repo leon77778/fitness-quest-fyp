@@ -103,16 +103,20 @@ Persisted under AsyncStorage key `@rpgfit:sessionHistory`.
 ## AI Integration
 - **Service:** Groq (`https://api.groq.com/openai/v1/chat/completions`)
 - **Model:** `llama-3.3-70b-versatile`
-- **Key location:** `EXPO_PUBLIC_GROQ_API_KEY` in `.env` (local) and `eas.json` preview env block (builds)
+- **Key location:** `EXPO_PUBLIC_GROQ_API_KEY` in `.env` (local/Expo Go) and **expo.dev dashboard** Environment Variables → Preview (EAS builds)
 - **Exercise generation:** `getAIExercise()` in `App.js` — adapts difficulty based on history
 - **Oracle chatbot:** inline in `App.js` OracleScreen — RPG "wise mentor" personality
 
-### ⚠️ EAS API Key Gotcha — READ THIS
-EAS secrets (set via `eas secret:create` or the expo.dev UI) **override** `eas.json` env variables for the same key name. If the Oracle stops working in the APK but works in Expo Go:
-1. Run `eas env:list preview --scope project` to check for a secret overriding the key
-2. If `EXPO_PUBLIC_GROQ_API_KEY` appears, delete it: `eas env:delete preview --variable-name EXPO_PUBLIC_GROQ_API_KEY --scope project`
-3. The correct key lives only in `eas.json` — do not create EAS secrets for it
-4. Also check console.groq.com that the key is not revoked
+### ⚠️ Groq API Key Rules — READ THIS
+- **NEVER put the Groq key in eas.json** — the repo is public, GitHub will detect it and Groq will auto-revoke it
+- The key for EAS builds lives on **expo.dev** → project → Environment Variables → Preview
+- The key for local/Expo Go lives in `.env` (gitignored)
+- If the Oracle stops working in the APK but works in Expo Go:
+  1. Go to console.groq.com and check if the key is revoked
+  2. If revoked, create a new key and update it on expo.dev dashboard (NOT in eas.json)
+  3. Run `eas env:list preview --scope project` to check for conflicting secrets
+  4. If `EXPO_PUBLIC_GROQ_API_KEY` appears as a secret, delete it: `eas env:delete preview --variable-name EXPO_PUBLIC_GROQ_API_KEY --scope project`
+  5. Rebuild the APK
 
 ---
 
