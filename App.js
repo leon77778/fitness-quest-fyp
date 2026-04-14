@@ -115,8 +115,8 @@ const WEAPONS = [
 
 // ── Calorie estimation from session data ──
 const EXERCISE_MET = {
-  "Push-Ups": 3.8, "Jumping Jacks": 8.0, "Squat Jumps": 7.0,
-  "Plank": 3.0, "High Knees": 8.0,
+  "Push-Ups": 3.8, "Jumping Jacks": 7.5, "Squat Jumps": 11.0,
+  "Plank": 2.8, "High Knees": 7.5,
 };
 const SECS_PER_REP = {
   "Push-Ups": 3.0, "Jumping Jacks": 1.0, "Squat Jumps": 2.5,
