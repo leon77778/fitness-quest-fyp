@@ -1,0 +1,130 @@
+flowchart TB
+    U[User]
+    MC[Mobile Client: Expo / React Native]
+    APP[App.js Root Controller]
+
+    U --> MC
+    MC --> APP
+
+    subgraph Screens[Feature Screens]
+        L[LoginScreen]
+        O[OnboardingScreen]
+        H[HomeScreen]
+        P[ProgressScreen]
+        OR[OracleScreen]
+        E[ExerciseScreen]
+        W[WalkScreen]
+        PR[ProfileScreen]
+        F[FailedScreen]
+    end
+
+    subgraph Shared[Shared UI Components]
+        CC[CalorieChart]
+        TD[TimerDisplay]
+        RC[RepCounter]
+        WB[WeaponBadge]
+        WM[WeaponBadgesModal]
+        LM[LevelUpModal]
+    end
+
+    subgraph Domain[Domain Logic Inside App.js]
+        EX[Exercise Catalog]
+        WE[Weapon Catalog]
+        CAL[Calorie Logic]
+        CLOG[Calendar Logic]
+        XP[Progression Logic]
+        AD[Adaptive Difficulty]
+        AIG[AI Workout Gen]
+        AWG[AI Walk Gen]
+        GWS[groupWorkoutSessions]
+    end
+
+    SUP[lib/supabase.js
+    Shared Supabase client
+    Auth session persistence
+    Database access]
+
+    subgraph WalkUtils[src/utils/walk.js]
+        DP[destinationPoint]
+        HD[haversineDistance (distance approximation)]
+        WS[save/load/clearActiveWalkState]
+        GM[Google Maps URL builders]
+        BWE[buildWalkSessionEntry]
+        WP[computeWalkProgress]
+        FMT[formatDistance / formatElapsedTime]
+    end
+
+    subgraph Device[Device / Expo APIs]
+        LOC[expo-location]
+        LINK[expo-linking]
+        VID[expo-av Video]
+        AS[AsyncStorage]
+    end
+
+    subgraph External[External Services / Data Layer]
+        SA[Supabase Auth]
+        PT[profiles table]
+        ST[sessions table]
+        WT[walk_sessions table]
+        GROQ[Groq LLM API]
+        SS[Supabase Storage]
+    end
+
+    APP --> L
+    APP --> O
+    APP --> H
+    APP --> P
+    APP --> OR
+    APP --> E
+    APP --> W
+    APP --> PR
+    APP --> F
+
+    H --> CC
+    P --> CC
+    E --> TD
+    E --> RC
+    PR --> WB
+    APP --> WM
+    APP --> LM
+
+    APP --> EX
+    APP --> WE
+    APP --> CAL
+    APP --> CLOG
+    APP --> XP
+    APP --> AD
+    APP --> AIG
+    APP --> AWG
+    P --> GWS
+
+    APP --> SUP
+    L --> SUP
+    O --> SUP
+    PR --> SUP
+    W --> SUP
+
+    SUP --> SA
+    SUP --> PT
+    SUP --> ST
+    SUP --> WT
+    SUP --> AS
+
+    W --> DP
+    W --> HD
+    W --> WS
+    W --> GM
+    W --> BWE
+    W --> WP
+    W --> FMT
+    W --> LOC
+    W --> LINK
+    W --> AS
+
+    E --> VID
+    EX --> SS
+    E --> SS
+
+    AIG --> GROQ
+    AWG --> GROQ
+    OR --> GROQ

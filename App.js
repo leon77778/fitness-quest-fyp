@@ -1542,10 +1542,10 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
 
     const isComplete = walkObjective
       ? walkObjective.type === 'distance'
-        ? forceComplete || achievedRef.current
+        ? achievedRef.current
         : elapsedRef.current >= walkObjective.value
       : false;
-    const xpEarned = isComplete ? 50 + Math.floor(distanceRef.current / 10) : 0;
+    const xpEarned = isComplete ? 10 + Math.floor(distanceRef.current / 10) : 0;
 
     let savedEntry = null;
     if (user && walkObjective) {
@@ -1667,7 +1667,7 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
       {/* Start / Stop button */}
       <TouchableOpacity
         style={[s.walkBtn, tracking && s.walkBtnStop, (walkLoading || saving) && { opacity: 0.5 }]}
-        onPress={tracking ? stopWalk : startWalk}
+        onPress={tracking ? () => stopWalk(false) : startWalk}
         disabled={walkLoading || saving}
         activeOpacity={0.85}
       >
