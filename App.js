@@ -1466,6 +1466,7 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
 
   const startWalk = async () => {
     setPermError('');
+    await clearActiveWalkState();
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') { setPermError('Location permission denied. Please allow it in Settings.'); return; }
 
