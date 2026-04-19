@@ -1546,7 +1546,7 @@ function WalkScreen({ walkObjective, walkLoading, onWalkComplete, user, userProf
         ? achievedRef.current
         : elapsedRef.current >= walkObjective.value
       : false;
-    const xpEarned = isComplete ? 10 + Math.floor(distanceRef.current / 10) : 0;
+    const xpEarned = isComplete ? Math.floor(distanceRef.current / 4) : 0;
 
     let savedEntry = null;
     if (user && walkObjective) {
