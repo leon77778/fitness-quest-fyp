@@ -65,7 +65,7 @@ The easiest way to install RPGFit is directly from the build link below — no a
 1. Open the link above on your Android phone
 2. Tap **Install** on the page that opens
 3. If prompted, enable **Install unknown apps** in your Android settings, then retry
-4. Once installed, open **RPGFit** from your app drawer
+4. Once installed, open **Fitness quest** from your app drawer
 5. Create an account with any email and password to get started
 
 > **Requirements:** Android 10 or later. An internet connection is required for AI workout generation, GPS walk tracking, and the Oracle chatbot.
