@@ -53,7 +53,23 @@ rpgfit/
 
 ---
 
-## Getting Started
+## Installing the App (Examiner / Marker)
+
+An `.apk` installer file is included in the submission folder alongside this repository.
+
+**To install RPGFit on an Android device:**
+
+1. Transfer the `.apk` file to your Android phone (via USB, email, or Google Drive)
+2. On the Android device, open **Settings** → **Security** (or **Apps**) → enable **Install unknown apps** for your file manager or browser
+3. Open the `.apk` file on the device and tap **Install**
+4. Once installed, open **RPGFit** from your app drawer
+5. Create an account using any email and password to get started
+
+> **Requirements:** Android 10 or later. An internet connection is required for AI workout generation, GPS walk tracking, and the Oracle chatbot.
+
+---
+
+## Running from Source (Developers)
 
 ### Prerequisites
 
