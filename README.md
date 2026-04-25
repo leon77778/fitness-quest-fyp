@@ -99,13 +99,202 @@ rpgfit/
 
 ## Database Schema
 
-Three tables hosted on Supabase PostgreSQL:
+RPGFit uses Supabase (PostgreSQL) with three tables. Every table has Row-Level Security (RLS) enabled so users can only read and write their own data.
 
-- **profiles** — User stats: XP, level, streak, best streak, weight, height, fitness level, equipped weapon
-- **sessions** — Individual exercise records: exercise name, type (reps/timer), target, completion status
-- **walk_sessions** — Walk records: distance, duration, XP earned, GPS route coordinates, objective
+### How RLS works
 
-Row-level security ensures users can only access their own data.
+Every request from the app is made using the user's auth token. Supabase attaches `auth.uid()` to the request and the RLS policy checks it matches the row's `user_id` (or `id` in profiles). If it doesn't match, the query returns nothing — no application-level code can ever access another user's data.
+
+```sql
+-- Example policy on sessions table
+create policy "Users manage own sessions" on public.sessions for all
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
+```
+
+---
+
+### `profiles` table
+
+Stores one row per user. Links 1-to-1 with Supabase Auth via the `id` foreign key. Deleting the auth user cascades to delete the profile.
+
+```sql
+create table public.profiles (
+  id                uuid primary key references auth.users(id) on delete cascade,
+  display_name      text not null default '',
+  age               int  not null default 0,
+  weight            numeric(5,1) not null default 0,   -- kg
+  height            int  not null default 0,            -- cm
+  fitness_level     text not null default 'beginner'
+                    check (fitness_level in ('beginner','intermediate','advanced')),
+  xp                int  not null default 0,
+  streak            int  not null default 0,
+  best_streak       int  not null default 0,
+  last_session_date text,                               -- ISO 8601 date string
+  equipped_cosmetics jsonb default '{}',               -- e.g. {"weapon": "goldsword"}
+  unlocked_cosmetics text[] default '{}',              -- not used at runtime (dynamic from XP)
+  created_at        timestamptz not null default now()
+);
+```
+
+> **Note:** `unlocked_cosmetics` exists in the schema but is not used at runtime. Weapon unlocks are calculated dynamically from the user's XP level.
+
+---
+
+### `sessions` table
+
+One row per individual exercise performed. Each workout session produces 5 rows (one per exercise). Links many-to-one with `profiles`.
+
+```sql
+create table public.sessions (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  date       text not null,          -- ISO 8601 date string e.g. "2026-04-25"
+  exercise   text not null,          -- e.g. "Push-Ups", "Plank"
+  type       text not null check (type in ('reps','timer')),
+  target     int  not null default 0, -- reps count or seconds
+  completed  boolean not null default false,
+  created_at timestamptz not null default now()
+);
+```
+
+The AI reads the most recent 20 session rows to generate the next workout. The `computeExerciseDifficulty()` function looks at the last 5 attempts per exercise to decide whether to reduce, maintain, or increase difficulty.
+
+---
+
+### `walk_sessions` table
+
+One row per walk. Stores the full GPS route as a JSONB array of coordinates so the walk can be restored if the app is interrupted. Links many-to-one with `profiles`.
+
+```sql
+create table public.walk_sessions (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  date       text not null,
+  objective  text not null,           -- AI-generated objective description
+  obj_type   text not null check (obj_type in ('distance','time')),
+  obj_value  numeric(10,2) not null,  -- target distance (m) or duration (s)
+  distance_m numeric(10,2) not null default 0,
+  duration_s int  not null default 0,
+  xp_earned  int  not null default 0,
+  completed  boolean not null default false,
+  route      jsonb,                   -- array of {latitude, longitude} coordinates
+  created_at timestamptz not null default now()
+);
+```
+
+### Relationship diagram
+
+```
+auth.users (Supabase Auth)
+    │
+    ├──(1:1)── profiles        ← XP, streak, weight, equipped weapon
+    │
+    ├──(1:many)── sessions     ← individual exercise records
+    │
+    └──(1:many)── walk_sessions ← GPS walk records
+```
+
+---
+
+## Formulas
+
+### XP & Progression
+
+```
+-- Rep-based exercise
+XP = target_reps × 2
+
+-- Timer-based exercise
+XP = target_seconds × 1
+
+-- Walk (only awarded on completion)
+XP = floor(distance_metres / 4)
+
+-- Incomplete walk
+XP = 0
+
+-- Level calculation (no level stored in DB — always derived)
+level = floor(total_xp / 200) + 1
+
+-- XP required for next level
+xp_to_next = 200 - (total_xp % 200)
+```
+
+### Calorie Estimation (MET-based)
+
+```
+Calories = MET × weight_kg × duration_hours
+```
+
+**Exercise MET values used in code:**
+
+| Exercise | MET |
+|---|---|
+| Jumping Jacks | 7.5 |
+| High Knees | 7.5 |
+| Squat Jumps | 11.0 |
+| Push-Ups | 3.8 |
+| Plank | 2.8 |
+| Walking | 3.5 |
+
+For rep-based exercises, duration is estimated before applying the formula:
+```
+duration_hours = (target_reps × seconds_per_rep) / 3600
+```
+
+Seconds-per-rep estimates: Push-Ups = 3.0s, Jumping Jacks = 1.0s, Squat Jumps = 2.5s. Other exercises default to 2.0s per rep.
+
+### GPS Distance Calculation (Equirectangular Approximation)
+
+Straight-line distance between two GPS coordinates:
+
+```
+x = (lon2 - lon1) × 111320 × cos(lat1 × π/180)
+y = (lat2 - lat1) × 110540
+distance_metres = sqrt(x² + y²)
+```
+
+- `111320` — metres per degree of longitude at the equator
+- `110540` — metres per degree of latitude
+- `cos(lat1)` — corrects for longitude compression at higher latitudes
+
+GPS updates below **5 metres** are discarded to filter out signal noise from standing still.
+
+### Walk Destination Generation (Spherical offset)
+
+Generates a target coordinate a fixed distance and bearing away from the user's starting position:
+
+```
+lat2 = asin( sin(lat1) × cos(d/R) + cos(lat1) × sin(d/R) × cos(bearing) )
+lon2 = lon1 + atan2( sin(bearing) × sin(d/R) × cos(lat1),
+                     cos(d/R) − sin(lat1) × sin(lat2) )
+```
+
+Where `R = 6,371,000 m` (Earth's radius), `d` = target distance in metres, `bearing` = direction in radians.
+
+### Streak Calculation
+
+```
+diff_days = (today - last_session_date) in whole days
+
+if diff_days == 1 → new_streak = current_streak + 1   (consecutive day)
+if diff_days == 0 → new_streak = current_streak        (same day, no change)
+if diff_days  > 1 → new_streak = 1                     (streak broken, reset)
+
+best_streak = max(best_streak, new_streak)
+```
+
+### Adaptive Difficulty
+
+For each exercise, the last 5 attempts are analysed:
+
+```
+if fails >= 2 out of last 5  → modifier = 'reduce'   (lower target ~20%)
+if all 5 completed           → modifier = 'increase'  (raise target)
+otherwise                    → modifier = 'normal'
+```
+
+The modifier object is injected into the AI prompt so Groq adjusts the workout targets accordingly.
 
 ---
 
@@ -118,29 +307,19 @@ Row-level security ensures users can only access their own data.
 | Walk (completed) | `floor(distance_metres / 4)` |
 | Walk (incomplete) | 0 XP |
 
-**Level formula:** `floor(total_xp / 200) + 1`
+**Weapon unlock levels:**
 
-**Weapon unlock levels:** Stick (1), Dagger (3), Axe (5), Sword (8), Gold Sword (12), Staff (16), Crystal (21), Trident (27), Legendary (35)
-
----
-
-## Key Formulas
-
-**Calorie estimation (MET-based):**
-```
-Calories = MET × weight_kg × duration_hours
-```
-
-Walking MET = 3.5. Exercise MET values vary by exercise type.
-
-**Distance calculation (equirectangular approximation):**
-```
-x = (lon2 - lon1) × 111320 × cos(lat1)
-y = (lat2 - lat1) × 110540
-distance = sqrt(x² + y²)
-```
-
-Movements below 5 metres are discarded to filter GPS noise.
+| Weapon | Level Required |
+|---|---|
+| Wooden Stick | 1 |
+| Dagger | 3 |
+| Axe | 5 |
+| Sword | 8 |
+| Gold Sword | 12 |
+| Staff | 16 |
+| Crystal | 21 |
+| Trident | 27 |
+| Legendary Blade | 35 |
 
 ---
 
