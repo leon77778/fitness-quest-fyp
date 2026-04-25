@@ -1,0 +1,64 @@
+DATABASE STRUCTURE CONTEXT
+This file is for documentation/context only.
+It is not imported by the app and is not connected to runtime code.
+
+create table public.profiles (
+  id            uuid primary key references auth.users(id) on delete cascade,
+  display_name  text not null default '',
+  age           int  not null default 0,
+  weight        numeric(5,1) not null default 0,
+  height        int  not null default 0,
+  fitness_level text not null default 'beginner'
+                check (fitness_level in ('beginner','intermediate','advanced')),
+  xp            int  not null default 0,
+  streak        int  not null default 0,
+  best_streak   int  not null default 0,
+  last_session_date text,
+  created_at    timestamptz not null default now()
+);
+alter table public.profiles enable row level security;
+create policy "Users manage own profile" on public.profiles for all
+  using (auth.uid() = id) with check (auth.uid() = id);
+
+create table public.walk_sessions (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null references auth.users(id) on delete cascade,
+  date        text not null,
+  objective   text not null,
+  obj_type    text not null check (obj_type in ('distance','time')),
+  obj_value   numeric(10,2) not null,
+  distance_m  numeric(10,2) not null default 0,
+  duration_s  int  not null default 0,
+  xp_earned   int  not null default 0,
+  completed   boolean not null default false,
+  route       jsonb,
+  created_at  timestamptz not null default now()
+);
+alter table public.walk_sessions enable row level security;
+create policy "Users manage own walk sessions" on public.walk_sessions for all
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+ALTER TABLE public.profiles
+  ADD COLUMN equipped_cosmetics jsonb DEFAULT '{}',
+  ADD COLUMN unlocked_cosmetics text[] DEFAULT '{}';
+
+UPDATE auth.users
+SET encrypted_password = crypt('123456789', gen_salt('bf'))
+WHERE email = 'kashemhoque00@gmail.com';
+
+create table public.sessions (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  date       text not null,
+  exercise   text not null,
+  type       text not null check (type in ('reps','timer')),
+  target     int  not null default 0,
+  completed  boolean not null default false,
+  created_at timestamptz not null default now()
+);
+alter table public.sessions enable row level security;
+create policy "Users manage own sessions" on public.sessions for all
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+alter table public.profiles
+add column if not exists equipped_cosmetics jsonb default '{}'::jsonb;

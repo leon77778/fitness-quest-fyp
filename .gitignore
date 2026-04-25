@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+
+# Android build outputs
+android/app/build/
+android/build/
+android/.gradle/
+
+# iOS
+ios/build/
+
+# Environment files
+.env
+.env.local
+*.env
+
+# API keys / secrets
+src/config.js
+
+# Misc
+.DS_Store
+.idea/
+*.log
+npm-debug.*
+yarn-debug.*
+yarn-error.*
